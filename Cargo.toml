@@ -1,0 +1,32 @@
+[package]
+name = "position-manager"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "*"
+tokio = { version = "*", features = ["full"] }
+async-trait = "*"
+rust-extensions = { tag = "0.1.3", git = "https://github.com/MyJetTools/rust-extensions.git" }
+my-logger = { tag = "0.2.0", git = "https://github.com/MyJetTools/my-logger.git" }
+flurl = { tag = "0.2.3", git = "https://github.com/MyJetTools/fl-url.git" }
+tonic = { version = "*", features = ["tls", "tls-roots", "prost"] }
+prost = "*"
+prost-types = "*"
+my-grpc-extensions = { tag = "0.3.0", git = "https://github.com/MyJetTools/my-grpc-extensions.git" }
+my-settings-reader = { tag = "0.1.5", git = "https://github.com/MyJetTools/my-settings-reader.git", features = [
+    "background-reader",
+] }
+service-sdk = {path = "/Users/hays/develop/rnd/service-sdk", features = ["service-bus"]}
+cfd-engine-sb-contracts = { path = "/Users/hays/develop/cfd/cfd-engine-sb-contracts" }
+my-service-bus-tcp-client = { tag = "0.2.1", git = "https://github.com/MyJetTools/my-service-bus-tcp-client.git" }
+my-service-bus-tcp-shared = { tag = "0.3.2", git = "https://github.com/MyJetTools/my-service-bus-tcp-shared.git" }
+my-service-bus-abstractions = { tag = "0.1.1", git = "https://github.com/MyJetTools/my-service-bus-abstractions.git" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.60"
+serde_yaml = "*"
+uuid = { version = "*", features = ["v4"] }
+[build-dependencies]
+tonic-build = { version = "0.9.2", features = ["prost"] }

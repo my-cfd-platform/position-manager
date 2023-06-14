@@ -1,0 +1,157 @@
+syntax = "proto3";
+package position_manager;
+
+enum PositionManagerOperationsCodes{
+    Ok = 0;
+    NoLiquidity = 1;
+    PositionNotFound = 2;
+}
+
+enum PositionManagerClosePositionReason{
+    ClientCommand = 0;
+    StopOut = 1;
+    TakeProfit = 2;
+    StopLoss = 3;
+    ForceClose = 4;
+}
+
+enum PositionManagerPositionSide{
+    Buy = 0;
+    Sell = 1;
+}
+
+message PositionManagerBidAsk{
+    string AssetPair = 1;
+    double Bid = 2;
+    double Ask = 3;
+    uint64 DateTimeUnixTimestampMilis = 4;
+}
+
+message PositionManagerOpenPositionGrpcRequest{
+    string AssetPair = 1;
+    PositionManagerPositionSide Side = 2;
+    double InvestAmount = 3;
+    double Leverage = 4;
+    double StopOutPercent = 5;
+    string ProcessId = 6;
+    optional double TpInProfit = 7;
+    optional double SlInProfit = 8;
+    optional double TpInAssetPrice = 9;
+    optional double SlInAssetPrice = 10;
+    optional double OpenPrice = 11;
+    optional PositionManagerBidAsk OpenBidAsk = 12;
+    string AccountId = 13;
+    string TraderId = 14;
+    string Base = 15;
+    string Quote = 16;
+    string CollateralCurrency = 17;
+    optional string Id = 18;
+
+}
+
+message PositionManagerActivePositionGrpcModel{
+    string Id = 1;
+    string AccountId = 2;
+    string TraderId = 3;
+    string AssetPair = 4;
+    PositionManagerPositionSide Side = 5;
+    double InvestAmount = 6;
+    double Leverage = 7;
+    double StopOutPercent = 8;
+    string CreateProcessId = 9;
+    uint64 CreateDateUnixTimestampMilis = 10;
+    string LastUpdateProcessId = 11;
+    uint64 LastUpdateDate = 12;
+    optional double TpInProfit = 13;
+    optional double SlInProfit = 14;
+    optional double TpInAssetPrice = 15;
+    optional double SlInAssetPrice = 16;
+    double OpenPrice = 17;
+    PositionManagerBidAsk OpenBidAsk = 18;
+    string OpenProcessId = 19;
+    uint64 OpenDate = 20;
+    double Profit = 21;
+}
+
+message PositionManagerOpenPositionGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerActivePositionGrpcModel Position = 2;
+}
+
+message PositionManagerClosePositionGrpcRequest{
+    string PositionId = 1;
+    string ProcessId = 2;
+    string AccountId = 3;
+    string TraderId = 4;
+}
+
+message PositionManagerClosedPositionGrpcModel{
+    string Id = 1;
+    string AssetPair = 2;
+    PositionManagerPositionSide Side = 3;
+    double InvestAmount = 4;
+    double Leverage = 5;
+    double StopOutPercent = 6;
+    string CreateProcessId = 7;
+    uint64 CreateDateUnixTimestampMilis = 8;
+    string LastUpdateProcessId = 9;
+    uint64 LastUpdateDate = 11;
+    optional double TpInProfit = 12;
+    optional double SlInProfit = 13;
+    optional double TpInAssetPrice = 14;
+    optional double SlInAssetPrice = 15;
+    double OpenPrice = 16;
+    PositionManagerBidAsk OpenBidAsk = 17;
+    string OpenProcessId = 18;
+    uint64 OpenDate = 19;
+    double Profit = 20;
+    double ClosePrice = 21;
+    PositionManagerBidAsk CloseBidAsk = 22;
+    string CloseProcessId = 23;
+    PositionManagerClosePositionReason CloseReason = 24;
+}
+
+message PositionManagerClosePositionGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerClosedPositionGrpcModel Position = 2;
+}
+
+message PositionManagerGetActivePositionsGrpcRequest{
+    string TraderId = 1;
+    string AccountId = 2;
+}
+
+message PositionManagerGetActivePositionGrpcRequest{
+    string TraderId = 1;
+    string AccountId = 2;
+    string PositionId = 3;
+}
+
+message PositionManagerGetActivePositionGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerActivePositionGrpcModel Position = 2;
+}
+
+message PositionManagerUpdateSlTpGrpcRequest{
+    string PositionId = 1;
+    string AccountId = 3;
+    string TraderId = 4;
+    optional double TpInProfit = 5;
+    optional double SlInProfit = 6;
+    optional double TpInAssetPrice = 7;
+    optional double SlInAssetPrice = 8;
+    string ProcessId = 9;
+}
+
+message PositionManagerUpdateSlTpGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerActivePositionGrpcModel Position = 2;
+}
+
+service PositionManagerGrpcService {
+    rpc OpenPosition(position_manager.PositionManagerOpenPositionGrpcRequest) returns (position_manager.PositionManagerOpenPositionGrpcResponse);
+    rpc ClosePosition(position_manager.PositionManagerClosePositionGrpcRequest) returns (position_manager.PositionManagerClosePositionGrpcResponse);
+    rpc GetAccountActivePositions(position_manager.PositionManagerGetActivePositionsGrpcRequest) returns (stream PositionManagerActivePositionGrpcModel);
+    rpc GetActivePosition(position_manager.PositionManagerGetActivePositionGrpcRequest) returns (PositionManagerGetActivePositionGrpcResponse);
+    rpc UpdateSlTp(position_manager.PositionManagerUpdateSlTpGrpcRequest) returns (PositionManagerUpdateSlTpGrpcResponse);
+ }
