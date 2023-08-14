@@ -78,6 +78,10 @@ impl<T: ExecutionBidAsk> EnginePosition<T> {
         return margin / self.data.invest_amount * 100.0;
     }
 
+    pub fn charge_swap(&mut self, swap: f64) {
+        self.data.swaps.add_swap(swap);
+    }
+
     pub fn update_sl(&mut self, sl_in_profit: &Option<f64>, sl_in_asset_price: &Option<f64>) {
         self.data.stop_loss_in_asset_price = sl_in_asset_price.clone();
         self.data.stop_loss_in_position_profit = sl_in_profit.clone();
@@ -116,6 +120,8 @@ impl<T: ExecutionBidAsk> EnginePosition<T> {
             PositionSide::Buy => pl,
             PositionSide::Sell => pl * -1.0,
         };
+
+        let pl = pl + self.data.swaps.total;
 
         self.state.update_profit(pl);
     }

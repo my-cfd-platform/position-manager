@@ -148,10 +148,23 @@ message PositionManagerUpdateSlTpGrpcResponse{
     optional PositionManagerActivePositionGrpcModel Position = 2;
 }
 
+message PositionManagerChargeSwapGrpcRequest
+{
+    string PositionId = 1;
+    string AccountId = 2;
+    double SwapAmount = 3;
+}
+
+message PositionManagerChargeSwapGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerActivePositionGrpcModel Position = 2;
+}
+
 service PositionManagerGrpcService {
     rpc OpenPosition(position_manager.PositionManagerOpenPositionGrpcRequest) returns (position_manager.PositionManagerOpenPositionGrpcResponse);
     rpc ClosePosition(position_manager.PositionManagerClosePositionGrpcRequest) returns (position_manager.PositionManagerClosePositionGrpcResponse);
     rpc GetAccountActivePositions(position_manager.PositionManagerGetActivePositionsGrpcRequest) returns (stream PositionManagerActivePositionGrpcModel);
     rpc GetActivePosition(position_manager.PositionManagerGetActivePositionGrpcRequest) returns (PositionManagerGetActivePositionGrpcResponse);
     rpc UpdateSlTp(position_manager.PositionManagerUpdateSlTpGrpcRequest) returns (PositionManagerUpdateSlTpGrpcResponse);
+    rpc ChargeSwap(position_manager.PositionManagerChargeSwapGrpcRequest) returns (PositionManagerChargeSwapGrpcResponse);
  }

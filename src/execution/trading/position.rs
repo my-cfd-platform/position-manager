@@ -27,6 +27,38 @@ pub struct EnginePosition<T: ExecutionBidAsk> {
 }
 
 #[derive(Debug, Clone)]
+pub struct EnginePositionSwap {
+    pub date: DateTimeAsMicroseconds,
+    pub amount: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnginePositionSwaps {
+    pub swaps: Vec<EnginePositionSwap>,
+    pub total: f64,
+}
+
+impl Default for EnginePositionSwaps {
+    fn default() -> Self {
+        Self {
+            swaps: Vec::new(),
+            total: 0.0,
+        }
+    }
+}
+
+impl EnginePositionSwaps {
+    pub fn add_swap(&mut self, amount: f64) {
+        let swap = EnginePositionSwap {
+            date: DateTimeAsMicroseconds::now(),
+            amount,
+        };
+        self.total += swap.amount;
+        self.swaps.push(swap);
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct EnginePositionBase {
     pub id: String,
     pub trader_id: String,
@@ -47,6 +79,7 @@ pub struct EnginePositionBase {
     pub collateral_currency: String,
     pub base: String,
     pub quote: String,
+    pub swaps: EnginePositionSwaps,
 }
 
 #[derive(Debug, Clone)]

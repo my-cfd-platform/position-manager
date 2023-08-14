@@ -4,7 +4,7 @@ use crate::{
     get_close_price,
     position_manager_persistence::position_manager_persistence_grpc_service_client::PositionManagerPersistenceGrpcServiceClient,
     ActivePositionState, ActivePricesCache, EngineBidAsk, EnginePosition, EnginePositionBase,
-    EnginePositionState, PositionSide,
+    EnginePositionState, EnginePositionSwap, PositionSide,
 };
 use tokio::sync::RwLock;
 use tonic::transport::Channel;
@@ -75,6 +75,17 @@ impl PositionManagerPersistenceClient {
                         collateral_currency: x.collateral.clone(),
                         base: x.base.clone(),
                         quote: x.quote.clone(),
+                        swaps: crate::EnginePositionSwaps {
+                            swaps: x
+                                .swaps
+                                .iter()
+                                .map(|x| EnginePositionSwap {
+                                    date: x.date_time_unix_timestamp_milis.into(),
+                                    amount: x.amount,
+                                })
+                                .collect(),
+                            total: 0.0,
+                        },
                     };
 
                     let collateral_base_open_bid_ask: Option<EngineBidAsk> =

@@ -45,6 +45,13 @@ message PositionManagerPersistenceActivePositionGrpcModel{
 
     string OpenProcessId = 24;
     uint64 OpenDateUnixTimestampMilis = 25;
+
+    repeated PositionManagerPersistenceActivePositionSwap Swaps = 26;
+}
+
+message PositionManagerPersistenceActivePositionSwap{
+    double Amount = 1;
+    uint64 DateTimeUnixTimestampMilis = 2;
 }
 
 service PositionManagerPersistenceGrpcService {

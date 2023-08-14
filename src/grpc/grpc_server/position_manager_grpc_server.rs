@@ -6,14 +6,15 @@ use crate::{
     close_position, open_position,
     position_manager_grpc::{
         position_manager_grpc_service_server::PositionManagerGrpcService,
-        PositionManagerActivePositionGrpcModel, PositionManagerClosePositionGrpcRequest,
-        PositionManagerClosePositionGrpcResponse, PositionManagerGetActivePositionGrpcRequest,
-        PositionManagerGetActivePositionGrpcResponse, PositionManagerGetActivePositionsGrpcRequest,
-        PositionManagerOpenPositionGrpcRequest, PositionManagerOpenPositionGrpcResponse,
-        PositionManagerOperationsCodes, PositionManagerUpdateSlTpGrpcRequest,
-        PositionManagerUpdateSlTpGrpcResponse, PositionManagerClosedPositionGrpcModel, PositionManagerClosePositionReason,
+        PositionManagerActivePositionGrpcModel, PositionManagerChargeSwapGrpcRequest,
+        PositionManagerClosePositionGrpcRequest, PositionManagerClosePositionGrpcResponse,
+        PositionManagerClosePositionReason, PositionManagerClosedPositionGrpcModel,
+        PositionManagerGetActivePositionGrpcRequest, PositionManagerGetActivePositionGrpcResponse,
+        PositionManagerGetActivePositionsGrpcRequest, PositionManagerOpenPositionGrpcRequest,
+        PositionManagerOpenPositionGrpcResponse, PositionManagerOperationsCodes,
+        PositionManagerUpdateSlTpGrpcRequest, PositionManagerUpdateSlTpGrpcResponse, PositionManagerChargeSwapGrpcResponse,
     },
-    EnginePosition, GrpcService, EngineBidAsk, ExecutionClosePositionReason, EnginePositionState,
+    EngineBidAsk, EnginePosition, EnginePositionState, ExecutionClosePositionReason, GrpcService,
 };
 
 #[tonic::async_trait]
@@ -106,6 +107,38 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(response));
     }
 
+    async fn charge_swap(
+        &self,
+        request: tonic::Request<PositionManagerChargeSwapGrpcRequest>,
+    ) -> Result<tonic::Response<PositionManagerChargeSwapGrpcResponse>, tonic::Status> {
+        let request = request.into_inner();
+        let mut active_cache = self.app.active_positions_cache.write().await;
+
+        let updated_position = active_cache.update_position(
+            &request.position_id,
+            |position: Option<&mut EnginePosition<EngineBidAsk>>| match position {
+                Some(position_to_update) => {
+                    position_to_update.charge_swap(request.swap_amount);
+
+                    return Some(position_to_update.clone());
+                }
+                None => None,
+            },
+        );
+
+        let response = match updated_position {
+            Some(position) => PositionManagerChargeSwapGrpcResponse {
+                position: Some(position.into()),
+                status: PositionManagerOperationsCodes::Ok as i32,
+            },
+            None => PositionManagerChargeSwapGrpcResponse {
+                position: None,
+                status: PositionManagerOperationsCodes::PositionNotFound as i32,
+            },
+        };
+        return Ok(tonic::Response::new(response));
+    }
+
     async fn get_account_active_positions(
         &self,
         request: tonic::Request<PositionManagerGetActivePositionsGrpcRequest>,
@@ -163,7 +196,6 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(response));
     }
 }
-
 
 impl Into<PositionManagerClosedPositionGrpcModel> for EnginePosition<EngineBidAsk> {
     fn into(self) -> PositionManagerClosedPositionGrpcModel {

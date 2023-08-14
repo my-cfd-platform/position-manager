@@ -1,10 +1,14 @@
-use std::{sync::Arc};
+use std::sync::Arc;
 
 use cfd_engine_sb_contracts::PositionPersistenceEvent;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 use uuid::Uuid;
 
-use crate::{AppContext, position_manager_grpc::PositionManagerOpenPositionGrpcRequest, EngineBidAsk, EngineError, EnginePosition, PositionSide, get_open_price, EnginePositionBase, ActivePositionState, EnginePositionState, get_close_price};
+use crate::{
+    get_close_price, get_open_price, position_manager_grpc::PositionManagerOpenPositionGrpcRequest,
+    ActivePositionState, AppContext, EngineBidAsk, EngineError, EnginePosition, EnginePositionBase,
+    EnginePositionState, PositionSide,
+};
 
 pub async fn open_position(
     app: &Arc<AppContext>,
@@ -30,8 +34,7 @@ pub async fn make_active_order_from_request(
     app: &Arc<AppContext>,
     request: PositionManagerOpenPositionGrpcRequest,
 ) -> Result<EnginePosition<EngineBidAsk>, EngineError> {
-
-    let pos_id = match &request.id{
+    let pos_id = match &request.id {
         Some(src) => src.clone(),
         None => Uuid::new_v4().to_string(),
     };
@@ -45,23 +48,37 @@ pub async fn make_active_order_from_request(
         return Err(EngineError::NoLiquidity);
     };
 
-    let (collateral_base_price, collateral_base_bid_ask) = match read.get_by_currencies(&request.base, &request.collateral_currency){
-        Some(src) => (get_open_price(src.as_ref(), &side), Some(src.as_ref().clone())),
-        None => (1.0, None),
-    };
+    let (collateral_base_price, collateral_base_bid_ask) =
+        match read.get_by_currencies(&request.base, &request.collateral_currency) {
+            Some(src) => (
+                get_open_price(src.as_ref(), &side),
+                Some(src.as_ref().clone()),
+            ),
+            None => (1.0, None),
+        };
 
-    let (collateral_quote_price, collateral_quote_bid_ask) = match read.get_by_currencies(&request.quote, &request.collateral_currency){
-        Some(src) => (get_close_price(src.as_ref(), &side), Some(src.as_ref().clone())),
-        None => (1.0, None),
-    };
+    let (collateral_quote_price, collateral_quote_bid_ask) =
+        match read.get_by_currencies(&request.quote, &request.collateral_currency) {
+            Some(src) => (
+                get_close_price(src.as_ref(), &side),
+                Some(src.as_ref().clone()),
+            ),
+            None => (1.0, None),
+        };
 
-    if request.base != request.collateral_currency && collateral_base_bid_ask.is_none(){
-        println!("base collateral_currency price not found. Request: {:?}", request);
+    if request.base != request.collateral_currency && collateral_base_bid_ask.is_none() {
+        println!(
+            "base collateral_currency price not found. Request: {:?}",
+            request
+        );
         return Err(EngineError::NoLiquidity);
     }
 
-    if request.quote != request.collateral_currency && collateral_quote_bid_ask.is_none(){
-        println!("base collateral_currency price not found. Request: {:?}", request);
+    if request.quote != request.collateral_currency && collateral_quote_bid_ask.is_none() {
+        println!(
+            "base collateral_currency price not found. Request: {:?}",
+            request
+        );
         return Err(EngineError::NoLiquidity);
     }
 
@@ -85,6 +102,7 @@ pub async fn make_active_order_from_request(
         collateral_currency: request.collateral_currency.clone(),
         base: request.base.clone(),
         quote: request.quote.clone(),
+        swaps: crate::EnginePositionSwaps::default(),
     };
 
     let state: ActivePositionState<EngineBidAsk> = ActivePositionState {

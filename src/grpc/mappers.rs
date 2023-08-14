@@ -1,4 +1,4 @@
-use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel};
+use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSwap};
 
 use crate::{
     position_manager_grpc::{
@@ -7,7 +7,7 @@ use crate::{
     },
     position_manager_persistence::PositionManagerPersistenceBidAsk,
     ActivePositionState, ClosedPositionStates, EngineBidAsk, EngineError, EnginePosition,
-    EnginePositionState, ExecutionClosePositionReason, PendingPositionState,
+    EnginePositionState, ExecutionClosePositionReason, PendingPositionState, EnginePositionSwaps,
 };
 
 impl Into<EngineBidAsk> for PositionManagerPersistenceBidAsk {
@@ -44,6 +44,15 @@ impl Into<OrderBidAskSbModel> for EngineBidAsk {
             base: self.base,
             quote: self.quote,
         }
+    }
+}
+
+impl Into<Vec<OrderSwap>> for EnginePositionSwaps {
+    fn into(self) -> Vec<OrderSwap> {
+        self.swaps.iter().map(|x| OrderSwap{
+            amount: x.amount,
+            date: x.date.unix_microseconds as u64,
+        }).collect()
     }
 }
 
@@ -112,6 +121,7 @@ impl Into<OrderSbModel> for EnginePosition<EngineBidAsk> {
                     base_collateral_open_bid_ask: base_collateral_open_bid_ask,
                     close_quote_collateral_price: collateral_quote_last_price,
                     close_quote_collateral_bid_ask: collateral_quote_last_bid_ask,
+                    swaps: self.data.swaps.into()
                 }
             }
             EnginePositionState::Closed(ClosedPositionStates {
@@ -170,6 +180,7 @@ impl Into<OrderSbModel> for EnginePosition<EngineBidAsk> {
                     base_collateral_open_bid_ask: base_collateral_open_bid_ask,
                     close_quote_collateral_price: active_state.collateral_base_open_price,
                     close_quote_collateral_bid_ask: collateral_quote_last_bid_ask,
+                    swaps: self.data.swaps.into(),
                 }
             }
         };
