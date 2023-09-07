@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use tonic::codegen::futures_core::Stream;
+use futures_core::Stream;
 
 use crate::{
     close_position, open_position,
@@ -195,6 +195,13 @@ impl PositionManagerGrpcService for GrpcService {
         };
         return Ok(tonic::Response::new(response));
     }
+
+    async fn ping(
+        &self,
+        request: tonic::Request<()>,
+    ) -> Result<tonic::Response<()>, tonic::Status> {
+        return Ok(tonic::Response::new(()));
+    }
 }
 
 impl Into<PositionManagerClosedPositionGrpcModel> for EnginePosition<EngineBidAsk> {
@@ -234,4 +241,5 @@ impl Into<PositionManagerClosedPositionGrpcModel> for EnginePosition<EngineBidAs
             close_reason: close_position_reason as i32,
         }
     }
+    
 }

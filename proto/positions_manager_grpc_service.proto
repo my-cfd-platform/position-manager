@@ -1,5 +1,6 @@
 syntax = "proto3";
 package position_manager;
+import "google/protobuf/empty.proto";
 
 enum PositionManagerOperationsCodes{
     Ok = 0;
@@ -167,4 +168,5 @@ service PositionManagerGrpcService {
     rpc GetActivePosition(position_manager.PositionManagerGetActivePositionGrpcRequest) returns (PositionManagerGetActivePositionGrpcResponse);
     rpc UpdateSlTp(position_manager.PositionManagerUpdateSlTpGrpcRequest) returns (PositionManagerUpdateSlTpGrpcResponse);
     rpc ChargeSwap(position_manager.PositionManagerChargeSwapGrpcRequest) returns (PositionManagerChargeSwapGrpcResponse);
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
  }
