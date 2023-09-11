@@ -107,7 +107,7 @@ impl<T: ExecutionBidAsk> EnginePosition<T> {
         let price_change = active_state.asset_last_price - active_state.asset_open_price;
 
         let pl = match &active_state.collateral_quote_last_bid_ask {
-            Some(collateral) => match self.data.quote != collateral.get_quote() {
+            Some(collateral) => match self.data.collateral_currency != collateral.get_quote() {
                 true => collateral_invest * price_change * active_state.collateral_quote_last_price,
                 false => {
                     collateral_invest * price_change / active_state.collateral_quote_last_price
