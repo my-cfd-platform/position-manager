@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
 use futures_core::Stream;
+use my_grpc_extensions::with_telemetry;
 
 use crate::{
     close_position, open_position,
@@ -28,6 +29,7 @@ impl PositionManagerGrpcService for GrpcService {
         >,
     >;
 
+    #[with_telemetry]
     async fn open_position(
         &self,
         request: tonic::Request<PositionManagerOpenPositionGrpcRequest>,
@@ -52,6 +54,7 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(response));
     }
 
+    #[with_telemetry]
     async fn get_active_position(
         &self,
         request: tonic::Request<PositionManagerGetActivePositionGrpcRequest>,
@@ -75,6 +78,7 @@ impl PositionManagerGrpcService for GrpcService {
         ));
     }
 
+    #[with_telemetry]
     async fn close_position(
         &self,
         request: tonic::Request<PositionManagerClosePositionGrpcRequest>,
@@ -107,6 +111,7 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(response));
     }
 
+    #[with_telemetry]
     async fn charge_swap(
         &self,
         request: tonic::Request<PositionManagerChargeSwapGrpcRequest>,
@@ -139,6 +144,7 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(response));
     }
 
+    #[with_telemetry]
     async fn get_account_active_positions(
         &self,
         request: tonic::Request<PositionManagerGetActivePositionsGrpcRequest>,
@@ -163,6 +169,7 @@ impl PositionManagerGrpcService for GrpcService {
         return my_grpc_extensions::grpc_server::send_vec_to_stream(to_send, |x| x).await;
     }
 
+    #[with_telemetry]
     async fn update_sl_tp(
         &self,
         request: tonic::Request<PositionManagerUpdateSlTpGrpcRequest>,

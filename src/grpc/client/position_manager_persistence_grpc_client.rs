@@ -1,5 +1,6 @@
+use my_grpc_extensions::generate_grpc_client;
 
-#[my_grpc_client_macros::generate_grpc_client(
+#[generate_grpc_client(
     proto_file: "./proto/position_manager_persistence.proto",
     crate_ns: "crate::position_manager_persistence",
     retries: 3,
