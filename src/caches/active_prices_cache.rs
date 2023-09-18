@@ -14,10 +14,34 @@ impl<T> ActivePricesCache<T>
 where
     T: ExecutionBidAsk + Clone,
 {
-    pub fn new() -> Self {
+    pub fn new(prices: Vec<T>) -> Self {
+        let prices: HashMap<String, Arc<T>> = prices
+            .into_iter()
+            .map(|price| (price.get_asset_pair().to_string(), Arc::new(price)))
+            .collect();
+
+        let mut base_quote_index: HashMap<String, HashMap<String, String>> = HashMap::new();
+
+        for (_, price) in &prices {
+            if let Some(quote_index) = base_quote_index.get_mut(price.get_base()) {
+                quote_index.insert(
+                    price.get_quote().to_string(),
+                    price.get_asset_pair().to_string(),
+                );
+            } else {
+                base_quote_index.insert(
+                    price.get_base().to_string(),
+                    HashMap::from([(
+                        price.get_quote().to_string(),
+                        price.get_asset_pair().to_string(),
+                    )]),
+                );
+            }
+        }
+
         Self {
-            prices: HashMap::new(),
-            base_quote_index: HashMap::new(),
+            prices,
+            base_quote_index,
         }
     }
 

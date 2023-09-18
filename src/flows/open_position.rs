@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use cfd_engine_sb_contracts::PositionPersistenceEvent;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
+use service_sdk::my_telemetry::MyTelemetryContext;
 use uuid::Uuid;
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
 pub async fn open_position(
     app: &Arc<AppContext>,
     request: PositionManagerOpenPositionGrpcRequest,
+    telemetry: &MyTelemetryContext,
 ) -> Result<EnginePosition<EngineBidAsk>, EngineError> {
     let mut active_cache = app.active_positions_cache.write().await;
     let active_position = make_active_order_from_request(app, request.clone()).await?;
@@ -25,7 +27,7 @@ pub async fn open_position(
         create_position: Some(active_position.clone().into()),
     };
 
-    app.persistence_queue.publish(&sb_event).await.unwrap();
+    app.persistence_queue.publish(&sb_event, Some(telemetry)).await.unwrap();
 
     return Ok(active_position);
 }

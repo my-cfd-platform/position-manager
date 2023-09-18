@@ -1,6 +1,6 @@
 use cfd_engine_sb_contracts::BidAskSbModel;
 
-use crate::{EngineBidAsk, position_manager_persistence::PositionManagerPersistenceBidAsk};
+use crate::EngineBidAsk;
 
 impl From<BidAskSbModel> for EngineBidAsk {
     fn from(value: BidAskSbModel) -> Self {
@@ -9,8 +9,8 @@ impl From<BidAskSbModel> for EngineBidAsk {
             bid: value.bid,
             ask: value.ask,
             datetime: value.date_time_unix_milis.into(),
-            base: value.base.unwrap(),
-            quote: value.quote.unwrap(),
+            base: value.base,
+            quote: value.quote,
         }
     }
 }

@@ -1,9 +1,11 @@
-use my_service_bus_tcp_client::MyServiceBusSettings;
-use my_settings_reader::SettingsModel;
 use serde::{Deserialize, Serialize};
-use service_sdk::ServiceInfo;
+use service_sdk::my_service_bus::client::MyServiceBusSettings;
 
-#[derive(SettingsModel, Serialize, Deserialize, Debug, Clone)]
+service_sdk::macros::use_settings!();
+
+#[derive(
+    my_settings_reader::SettingsModel, SdkSettingsTraits, Serialize, Deserialize, Debug, Clone,
+)]
 pub struct SettingsModel {
     #[serde(rename = "SbTcp")]
     pub sb_tcp: String,
@@ -23,32 +25,18 @@ impl MyServiceBusSettings for SettingsReader {
     }
 }
 
-
-
 #[async_trait::async_trait]
-impl my_seq_logger::SeqSettings for SettingsReader {
+impl service_sdk::my_logger::my_seq_logger::SeqSettings for SettingsReader {
     async fn get_conn_string(&self) -> String {
         let read_access = self.settings.read().await;
         read_access.seq_conn_string.clone()
     }
 }
 
-
 #[async_trait::async_trait]
-impl my_telemetry_writer::MyTelemetrySettings for SettingsReader {
+impl service_sdk::my_telemetry::my_telemetry_writer::MyTelemetrySettings for SettingsReader {
     async fn get_telemetry_url(&self) -> String {
         let read_access = self.settings.read().await;
         read_access.my_telemetry.clone()
-    }
-}
-
-
-#[async_trait::async_trait]
-impl ServiceInfo for SettingsReader {
-    fn get_service_name(&self) -> String {
-        env!("CARGO_PKG_NAME").to_string()
-    }
-    fn get_service_version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
     }
 }

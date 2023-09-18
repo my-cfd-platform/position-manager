@@ -4,21 +4,24 @@ use position_manager::{
     position_manager_grpc::position_manager_grpc_service_server::PositionManagerGrpcServiceServer,
     AppContext, GrpcService, PricesListener, SettingsReader,
 };
-use service_sdk::ServiceContext;
 
 #[tokio::main]
 async fn main() {
-    let settings_reader = Arc::new(SettingsReader::new(".my-cfd").await);
+    let settings_reader = SettingsReader::new(".my-cfd-platform").await;
+    let settings_reader = Arc::new(settings_reader);
 
-    let mut service_context = ServiceContext::new(settings_reader.clone());
-    let app_ctx = Arc::new(AppContext::new(&settings_reader, &service_context).await);
-    service_context.register_sb_subscribe(
-        Arc::new(PricesListener::new(app_ctx.clone())),
-        my_service_bus_abstractions::subscriber::TopicQueueType::PermanentWithSingleConnection,
-    ).await;
-    service_context.add_grpc_service(PositionManagerGrpcServiceServer::new(GrpcService::new(
-        app_ctx,
-    )));
+    let mut service_context = service_sdk::ServiceContext::new(settings_reader.clone()).await;
+    let app_context = Arc::new(AppContext::new(&settings_reader, &service_context).await);
+
+    service_context.configure_grpc_server(|builder| {
+        builder.add_grpc_service(PositionManagerGrpcServiceServer::new(GrpcService::new(
+            app_context.clone(),
+        )))
+    });
+
+    let db_job = PricesListener::new(app_context.clone());
+
+    service_context.register_sb_subscribe(Arc::new(db_job), service_sdk::my_service_bus::abstractions::subscriber::TopicQueueType::PermanentWithSingleConnection).await;
 
     service_context.start_application().await;
 }

@@ -1,4 +1,5 @@
 fn main() {
-    tonic_build::compile_protos("proto/positions_manager_grpc_service.proto").unwrap();
-    tonic_build::compile_protos("proto/position_manager_persistence.proto").unwrap();
+    let url = "https://raw.githubusercontent.com/my-cfd-platform/proto-files/main/proto/";
+    ci_utils::sync_and_build_proto_file(url, "PositionsManager.proto");
+    ci_utils::sync_and_build_proto_file(url, "PositionsManagerPersistence.proto");
 }

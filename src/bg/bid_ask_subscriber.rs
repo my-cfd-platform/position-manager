@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use cfd_engine_sb_contracts::{BidAskSbModel, PositionPersistenceEvent};
-use my_service_bus_abstractions::subscriber::{
+use service_sdk::my_service_bus::abstractions::subscriber::{
     MessagesReader, MySbSubscriberHandleError, SubscriberCallback,
 };
 
@@ -80,10 +80,9 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
                 let messages_to_send: Vec<PositionPersistenceEvent> = closed_positions
                     .iter()
                     .map(|(position, reason)| {
-                        let closed_position = position.to_owned().close_position(
-                            &process_id,
-                            reason.to_owned(),
-                        );
+                        let closed_position = position
+                            .to_owned()
+                            .close_position(&process_id, reason.to_owned());
 
                         return PositionPersistenceEvent {
                             process_id: process_id.clone(),
@@ -96,7 +95,7 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
 
                 self.app
                     .persistence_queue
-                    .publish_messages(&messages_to_send)
+                    .publish_messages(&messages_to_send, None)
                     .await
                     .unwrap();
             }

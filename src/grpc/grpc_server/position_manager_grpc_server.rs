@@ -1,33 +1,25 @@
-use std::pin::Pin;
-
-use futures_core::Stream;
-use my_grpc_extensions::with_telemetry;
-
 use crate::{
     close_position, open_position,
     position_manager_grpc::{
         position_manager_grpc_service_server::PositionManagerGrpcService,
         PositionManagerActivePositionGrpcModel, PositionManagerChargeSwapGrpcRequest,
-        PositionManagerClosePositionGrpcRequest, PositionManagerClosePositionGrpcResponse,
-        PositionManagerClosePositionReason, PositionManagerClosedPositionGrpcModel,
-        PositionManagerGetActivePositionGrpcRequest, PositionManagerGetActivePositionGrpcResponse,
-        PositionManagerGetActivePositionsGrpcRequest, PositionManagerOpenPositionGrpcRequest,
-        PositionManagerOpenPositionGrpcResponse, PositionManagerOperationsCodes,
-        PositionManagerUpdateSlTpGrpcRequest, PositionManagerUpdateSlTpGrpcResponse, PositionManagerChargeSwapGrpcResponse,
+        PositionManagerChargeSwapGrpcResponse, PositionManagerClosePositionGrpcRequest,
+        PositionManagerClosePositionGrpcResponse, PositionManagerClosePositionReason,
+        PositionManagerClosedPositionGrpcModel, PositionManagerGetActivePositionGrpcRequest,
+        PositionManagerGetActivePositionGrpcResponse, PositionManagerGetActivePositionsGrpcRequest,
+        PositionManagerOpenPositionGrpcRequest, PositionManagerOpenPositionGrpcResponse,
+        PositionManagerOperationsCodes, PositionManagerUpdateSlTpGrpcRequest,
+        PositionManagerUpdateSlTpGrpcResponse,
     },
     EngineBidAsk, EnginePosition, EnginePositionState, ExecutionClosePositionReason, GrpcService,
 };
+use my_grpc_extensions::server::with_telemetry;
+use service_sdk::futures_core;
+use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
 
 #[tonic::async_trait]
 impl PositionManagerGrpcService for GrpcService {
-    type GetAccountActivePositionsStream = Pin<
-        Box<
-            dyn Stream<Item = Result<PositionManagerActivePositionGrpcModel, tonic::Status>>
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >;
+    generate_server_stream!(stream_name: "GetAccountActivePositionsStream", item_name: "PositionManagerActivePositionGrpcModel");
 
     #[with_telemetry]
     async fn open_position(
@@ -35,7 +27,7 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerOpenPositionGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerOpenPositionGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        let open_position_result = open_position(&self.app, request).await;
+        let open_position_result = open_position(&self.app, request, my_telemetry).await;
 
         let response = match open_position_result {
             Ok(position) => PositionManagerOpenPositionGrpcResponse {
@@ -91,6 +83,7 @@ impl PositionManagerGrpcService for GrpcService {
             &request.position_id,
             ExecutionClosePositionReason::ClientCommand,
             &request.process_id,
+            my_telemetry,
         )
         .await;
 
@@ -215,7 +208,7 @@ impl Into<PositionManagerClosedPositionGrpcModel> for EnginePosition<EngineBidAs
     fn into(self) -> PositionManagerClosedPositionGrpcModel {
         let data = self.data;
 
-        let EnginePositionState::Closed(closed_state) = self.state else{
+        let EnginePositionState::Closed(closed_state) = self.state else {
             panic!("Position is not closed");
         };
 
@@ -248,5 +241,4 @@ impl Into<PositionManagerClosedPositionGrpcModel> for EnginePosition<EngineBidAs
             close_reason: close_position_reason as i32,
         }
     }
-    
 }

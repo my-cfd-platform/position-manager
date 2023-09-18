@@ -6,32 +6,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+service-sdk = { git = "https://github.com/MyJetTools/service-sdk", tag = "0.2.3", features = [
+    "macros",
+    "grpc",
+    "my-service-bus",
+] }
+
 chrono = "*"
 tokio = { version = "*", features = ["full"] }
 async-trait = "*"
 rust-extensions = { tag = "0.1.3", git = "https://github.com/MyJetTools/rust-extensions.git" }
-my-logger = { tag = "0.2.0", git = "https://github.com/MyJetTools/my-logger.git" }
-flurl = { tag = "0.2.3", git = "https://github.com/MyJetTools/fl-url.git" }
 tonic = { version = "*", features = ["tls", "tls-roots", "prost"] }
 prost = "*"
 prost-types = "*"
-my-grpc-extensions = { git = "https://github.com/MyJetTools/my-grpc-extension-all-in-one.git", features = ["grpc-client", "grpc-server"]}
-my-settings-reader = { tag = "0.1.5", git = "https://github.com/MyJetTools/my-settings-reader.git", features = [
-    "background-reader",
-] }
-my-telemetry = { tag = "0.3.0", git = "https://github.com/MyJetTools/my-telemetry.git" }
-my-telemetry-writer = { tag = "0.3.0", git = "https://github.com/MyJetTools/my-telemetry-writer.git" }
-service-sdk = {git = "https://github.com/MyJetTools/service-sdk.git", tag = "0.1.20", features = ["service-bus", "grpc-server"]}
-cfd-engine-sb-contracts = { tag = "0.1.18", git = "https://github.com/my-cfd-platform/cfd-engine-sb-contracts.git" }
-my-service-bus-tcp-client = { tag = "0.2.1", git = "https://github.com/MyJetTools/my-service-bus-tcp-client.git" }
-my-service-bus-tcp-shared = { tag = "0.3.2", git = "https://github.com/MyJetTools/my-service-bus-tcp-shared.git" }
-my-service-bus-abstractions = { tag = "0.1.1", git = "https://github.com/MyJetTools/my-service-bus-abstractions.git" }
+cfd-engine-sb-contracts = { tag = "0.2.1", git = "https://github.com/my-cfd-platform/cfd-engine-sb-contracts.git" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.60"
-serde_yaml = "*"
 uuid = { version = "*", features = ["v4"] }
-my-seq-logger = { tag = "0.2.1", git = "https://github.com/MyJetTools/my-seq-logger.git" }
-futures-core = "*"
 
 [build-dependencies]
-tonic-build = { version = "0.10.0", features = ["prost"] }
+ci-utils = { git = "https://github.com/MyJetTools/ci-utils.git", tag = "0.1.0" }
