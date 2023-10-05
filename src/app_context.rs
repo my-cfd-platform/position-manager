@@ -1,48 +1,34 @@
 use std::sync::Arc;
 
-use cfd_engine_sb_contracts::PositionPersistenceEvent;
+use cfd_engine_sb_contracts::{PendingPositionPersistenceEvent, PositionPersistenceEvent};
 use rust_extensions::AppStates;
-use service_sdk::{
-    my_grpc_extensions::GrpcClientSettings,
-    my_service_bus::abstractions::publisher::MyServiceBusPublisher, ServiceContext,
-};
+use service_sdk::{my_service_bus::abstractions::publisher::MyServiceBusPublisher, ServiceContext};
 use tokio::sync::RwLock;
 
-use crate::{
-    ActivePositionsCache, ActivePricesCache, EngineBidAsk, EnginePosition, SettingsReader,
-};
+use crate::SettingsReader;
+
+use trading_sdk::mt_engine::{ActivePositionsCache, MtBidAskCache, PendingPositionsCache};
 
 pub struct AppContext {
-    pub active_positions_cache: Arc<RwLock<ActivePositionsCache<EnginePosition<EngineBidAsk>>>>,
-    pub active_prices_cache: Arc<RwLock<ActivePricesCache<EngineBidAsk>>>,
+    pub active_positions_cache: Arc<RwLock<ActivePositionsCache>>,
+    pub pending_positions_cache: Arc<RwLock<PendingPositionsCache>>,
+    pub active_prices_cache: Arc<RwLock<MtBidAskCache>>,
     pub app_states: Arc<AppStates>,
-    pub persistence_queue: MyServiceBusPublisher<PositionPersistenceEvent>,
+    pub active_positions_persistence_publisher: MyServiceBusPublisher<PositionPersistenceEvent>,
+    pub pending_positions_persistence_publisher:
+        MyServiceBusPublisher<PendingPositionPersistenceEvent>,
 }
 
 impl AppContext {
     pub async fn new(settings: &Arc<SettingsReader>, service_context: &ServiceContext) -> Self {
         let active_prices_cache = crate::flows::load_prices_cache(settings).await;
         Self {
-            active_positions_cache: Arc::new(RwLock::new(
-                crate::flows::load_positions(settings, active_prices_cache.clone()).await,
-            )),
             active_prices_cache,
             app_states: Arc::new(AppStates::create_initialized()),
-            persistence_queue: service_context.get_sb_publisher(false).await,
+            active_positions_persistence_publisher: service_context.get_sb_publisher(false).await,
+            pending_positions_persistence_publisher: service_context.get_sb_publisher(false).await,
+            pending_positions_cache: Arc::new(RwLock::new(PendingPositionsCache::new())),
+            active_positions_cache: Arc::new(RwLock::new(ActivePositionsCache::new())),
         }
-    }
-}
-pub struct GrpcSettings(String);
-
-impl GrpcSettings {
-    pub fn new_arc(url: String) -> Arc<Self> {
-        Arc::new(Self(url))
-    }
-}
-
-#[tonic::async_trait]
-impl GrpcClientSettings for GrpcSettings {
-    async fn get_grpc_url(&self, name: &'static str) -> String {
-        self.0.clone()
     }
 }

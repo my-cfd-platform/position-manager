@@ -47,8 +47,33 @@ message PositionManagerPersistenceActivePositionGrpcModel{
     uint64 OpenDateUnixTimestampMilis = 25;
 }
 
+message PositionManagerPersistencePendingPositionGrpcModel{
+    string Id = 1;
+    string AccountId = 2;
+    string TraderId = 3;
+    string AssetPair = 4;
+    PositionManagerPersistencePositionSide Side = 5;
+    double InvestAmount = 6;
+    double Leverage = 7;
+    double StopOutPercent = 8;
+    string CreateProcessId = 9;
+    uint64 CreateDateUnixTimestampMilis = 10;
+    string LastUpdateProcessId = 11;
+    uint64 LastUpdateDate = 12;
+    optional double TpInProfit = 13;
+    optional double SlInProfit = 14;
+    optional double TpInAssetPrice = 15;
+    optional double SlInAssetPrice = 16;
+    string Collateral = 17;
+    string Base = 18;
+    string Quote = 19;
+    double DesirePrice = 20;
+}
+
+
 service PositionManagerPersistenceGrpcService {
     rpc GetActivePositions(google.protobuf.Empty) returns (stream PositionManagerPersistenceActivePositionGrpcModel);
+    rpc GetPendingPositions(google.protobuf.Empty) returns (stream PositionManagerPersistencePendingPositionGrpcModel);
     rpc GetPricesSnapshot(google.protobuf.Empty) returns (stream PositionManagerPersistenceBidAsk);
     rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
 }

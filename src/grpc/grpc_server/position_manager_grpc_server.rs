@@ -1,25 +1,31 @@
 use crate::{
-    close_position, open_position,
+    cancel_pending, close_position, open_pending, open_position,
     position_manager_grpc::{
         position_manager_grpc_service_server::PositionManagerGrpcService,
-        PositionManagerActivePositionGrpcModel, PositionManagerChargeSwapGrpcRequest,
+        PositionManagerActivePositionGrpcModel, PositionManagerCancelPendingGrpcRequest,
+        PositionManagerCancelPendingGrpcResponse, PositionManagerChargeSwapGrpcRequest,
         PositionManagerChargeSwapGrpcResponse, PositionManagerClosePositionGrpcRequest,
-        PositionManagerClosePositionGrpcResponse, PositionManagerClosePositionReason,
-        PositionManagerClosedPositionGrpcModel, PositionManagerGetActivePositionGrpcRequest,
+        PositionManagerClosePositionGrpcResponse, PositionManagerGetActivePositionGrpcRequest,
         PositionManagerGetActivePositionGrpcResponse, PositionManagerGetActivePositionsGrpcRequest,
-        PositionManagerOpenPositionGrpcRequest, PositionManagerOpenPositionGrpcResponse,
-        PositionManagerOperationsCodes, PositionManagerUpdateSlTpGrpcRequest,
+        PositionManagerGetPendingPositionGrpcRequest,
+        PositionManagerGetPendingPositionGrpcResponse,
+        PositionManagerGetPendingPositionsGrpcRequest, PositionManagerOpenPendingGrpcRequest,
+        PositionManagerOpenPendingGrpcResponse, PositionManagerOpenPositionGrpcRequest,
+        PositionManagerOpenPositionGrpcResponse, PositionManagerOperationsCodes,
+        PositionManagerPendingPositionGrpcModel, PositionManagerUpdateSlTpGrpcRequest,
         PositionManagerUpdateSlTpGrpcResponse,
     },
-    EngineBidAsk, EnginePosition, EnginePositionState, ExecutionClosePositionReason, GrpcService,
+    GrpcService,
 };
 use my_grpc_extensions::server::with_telemetry;
 use service_sdk::futures_core;
 use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
+use trading_sdk::{core::EngineCacheQueryBuilder, mt_engine::MtPositionCloseReason};
 
 #[tonic::async_trait]
 impl PositionManagerGrpcService for GrpcService {
     generate_server_stream!(stream_name: "GetAccountActivePositionsStream", item_name: "PositionManagerActivePositionGrpcModel");
+    generate_server_stream!(stream_name: "GetAccountPendingPositionsStream", item_name: "PositionManagerPendingPositionGrpcModel");
 
     #[with_telemetry]
     async fn open_position(
@@ -52,22 +58,23 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerGetActivePositionGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerGetActivePositionGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        let reed = self.app.active_positions_cache.read().await;
-        if let Some(position) = reed.get_position_by_id(&request.position_id) {
-            return Ok(tonic::Response::new(
-                PositionManagerGetActivePositionGrpcResponse {
-                    position: Some(position.clone().into()),
+
+        let result = {
+            let reed = self.app.active_positions_cache.read().await;
+            let position = reed.0.get_by_id(&request.position_id);
+
+            match position {
+                Some(src) => PositionManagerGetActivePositionGrpcResponse {
+                    position: Some(src.clone().into()),
                     status: PositionManagerOperationsCodes::Ok as i32,
                 },
-            ));
+                None => PositionManagerGetActivePositionGrpcResponse {
+                    position: None,
+                    status: PositionManagerOperationsCodes::PositionNotFound as i32,
+                },
+            }
         };
-
-        return Ok(tonic::Response::new(
-            PositionManagerGetActivePositionGrpcResponse {
-                position: None,
-                status: PositionManagerOperationsCodes::PositionNotFound as i32,
-            },
-        ));
+        return Ok(tonic::Response::new(result));
     }
 
     #[with_telemetry]
@@ -81,7 +88,7 @@ impl PositionManagerGrpcService for GrpcService {
             &self.app,
             &request.account_id,
             &request.position_id,
-            ExecutionClosePositionReason::ClientCommand,
+            MtPositionCloseReason::ClientCommand,
             &request.process_id,
             my_telemetry,
         )
@@ -110,31 +117,7 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerChargeSwapGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerChargeSwapGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        let mut active_cache = self.app.active_positions_cache.write().await;
-
-        let updated_position = active_cache.update_position(
-            &request.position_id,
-            |position: Option<&mut EnginePosition<EngineBidAsk>>| match position {
-                Some(position_to_update) => {
-                    position_to_update.charge_swap(request.swap_amount);
-
-                    return Some(position_to_update.clone());
-                }
-                None => None,
-            },
-        );
-
-        let response = match updated_position {
-            Some(position) => PositionManagerChargeSwapGrpcResponse {
-                position: Some(position.into()),
-                status: PositionManagerOperationsCodes::Ok as i32,
-            },
-            None => PositionManagerChargeSwapGrpcResponse {
-                position: None,
-                status: PositionManagerOperationsCodes::PositionNotFound as i32,
-            },
-        };
-        return Ok(tonic::Response::new(response));
+        todo!();
     }
 
     #[with_telemetry]
@@ -143,23 +126,26 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerGetActivePositionsGrpcRequest>,
     ) -> Result<tonic::Response<Self::GetAccountActivePositionsStream>, tonic::Status> {
         let request = request.into_inner();
-        let mut active_cache = self.app.active_positions_cache.write().await;
-        let account_positions = active_cache.get_account_active_positions(&request.account_id);
 
-        let to_send = match account_positions {
-            Some(positions) => positions
+        let mut query = EngineCacheQueryBuilder::new();
+        query.with_client(&request.trader_id);
+        query.with_account(&request.account_id);
+
+        let result = {
+            let active_cache = self.app.active_positions_cache.read().await;
+            let account_positions = active_cache.0.query_positions(query);
+
+            account_positions
                 .iter()
-                .map(|position| {
-                    let source_position: EnginePosition<EngineBidAsk> = position.to_owned().clone();
-                    let grpc_position: PositionManagerActivePositionGrpcModel =
-                        source_position.into();
-                    grpc_position
+                .map(|x| {
+                    let item: PositionManagerActivePositionGrpcModel = x.to_owned().clone().into();
+
+                    return item;
                 })
-                .collect(),
-            None => vec![],
+                .collect()
         };
 
-        return my_grpc_extensions::grpc_server::send_vec_to_stream(to_send, |x| x).await;
+        return my_grpc_extensions::grpc_server::send_vec_to_stream(result, |x| x).await;
     }
 
     #[with_telemetry]
@@ -168,20 +154,21 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerUpdateSlTpGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerUpdateSlTpGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        let mut active_cache = self.app.active_positions_cache.write().await;
 
-        let updated_position = active_cache.update_position(
-            &request.position_id,
-            |position: Option<&mut EnginePosition<EngineBidAsk>>| match position {
-                Some(position_to_update) => {
-                    position_to_update.update_sl(&request.sl_in_profit, &request.sl_in_asset_price);
-                    position_to_update.update_tp(&request.tp_in_profit, &request.tp_in_asset_price);
-
-                    return Some(position_to_update.clone());
+        let updated_position = {
+            let mut active_cache = self.app.active_positions_cache.write().await;
+            active_cache.0.update_position(&request.position_id, |x| {
+                if let Some(src) = x {
+                    src.base_data.sl_price = request.sl_in_asset_price;
+                    src.base_data.tp_price = request.tp_in_asset_price;
+                    src.base_data.sl_profit = request.sl_in_profit;
+                    src.base_data.tp_profit = request.tp_in_profit;
+                    return Some(src.clone());
                 }
-                None => None,
-            },
-        );
+
+                return None;
+            })
+        };
 
         let response = match updated_position {
             Some(position) => PositionManagerUpdateSlTpGrpcResponse {
@@ -198,47 +185,115 @@ impl PositionManagerGrpcService for GrpcService {
 
     async fn ping(
         &self,
-        request: tonic::Request<()>,
+        _: tonic::Request<()>,
     ) -> Result<tonic::Response<()>, tonic::Status> {
         return Ok(tonic::Response::new(()));
     }
-}
 
-impl Into<PositionManagerClosedPositionGrpcModel> for EnginePosition<EngineBidAsk> {
-    fn into(self) -> PositionManagerClosedPositionGrpcModel {
-        let data = self.data;
+    #[with_telemetry]
+    async fn cancel_pending(
+        &self,
+        request: tonic::Request<PositionManagerCancelPendingGrpcRequest>,
+    ) -> Result<tonic::Response<PositionManagerCancelPendingGrpcResponse>, tonic::Status> {
+        let request = request.into_inner();
+        let removed = cancel_pending(&self.app, request, my_telemetry).await;
 
-        let EnginePositionState::Closed(closed_state) = self.state else {
-            panic!("Position is not closed");
+        let response = match removed {
+            Ok(position) => PositionManagerCancelPendingGrpcResponse {
+                position: Some(position.into()),
+                status: PositionManagerOperationsCodes::Ok as i32,
+            },
+            Err(error) => {
+                let grpc_status: PositionManagerOperationsCodes = error.into();
+                PositionManagerCancelPendingGrpcResponse {
+                    position: None,
+                    status: grpc_status as i32,
+                }
+            }
         };
 
-        let close_position_reason: PositionManagerClosePositionReason =
-            closed_state.close_reason.into();
+        return Ok(tonic::Response::new(response));
+    }
 
-        PositionManagerClosedPositionGrpcModel {
-            id: data.id,
-            asset_pair: data.asset_pair,
-            side: data.side as i32,
-            invest_amount: data.invest_amount,
-            leverage: data.leverage,
-            stop_out_percent: data.stop_out_percent,
-            create_process_id: data.create_process_id,
-            create_date_unix_timestamp_milis: data.create_date.unix_microseconds as u64,
-            last_update_process_id: data.last_update_process_id,
-            last_update_date: data.last_update_date.unix_microseconds as u64,
-            tp_in_profit: data.take_profit_in_position_profit,
-            sl_in_profit: data.stop_loss_in_position_profit,
-            tp_in_asset_price: data.take_profit_in_asset_price,
-            sl_in_asset_price: data.stop_loss_in_asset_price,
-            open_price: closed_state.active_state.asset_open_price,
-            open_bid_ask: Some(closed_state.active_state.asset_open_bid_ask.into()),
-            open_process_id: closed_state.active_state.open_process_id,
-            open_date: closed_state.active_state.open_date.unix_microseconds as u64,
-            profit: closed_state.active_state.profit,
-            close_price: closed_state.asset_close_price,
-            close_bid_ask: Some(closed_state.asset_close_bid_ask.into()),
-            close_process_id: closed_state.close_process_id,
-            close_reason: close_position_reason as i32,
-        }
+    #[with_telemetry]
+    async fn open_pending(
+        &self,
+        request: tonic::Request<PositionManagerOpenPendingGrpcRequest>,
+    ) -> Result<tonic::Response<PositionManagerOpenPendingGrpcResponse>, tonic::Status> {
+        let request = request.into_inner();
+
+        let pending = open_pending(&self.app, request, my_telemetry).await;
+
+        let response = match pending {
+            Ok(position) => PositionManagerOpenPendingGrpcResponse {
+                position: Some(position.into()),
+                status: PositionManagerOperationsCodes::Ok as i32,
+            },
+            Err(error) => {
+                let grpc_status: PositionManagerOperationsCodes = error.into();
+                PositionManagerOpenPendingGrpcResponse {
+                    position: None,
+                    status: grpc_status as i32,
+                }
+            }
+        };
+
+        return Ok(tonic::Response::new(response));
+    }
+
+    #[with_telemetry]
+    async fn get_account_pending_positions(
+        &self,
+        request: tonic::Request<PositionManagerGetPendingPositionsGrpcRequest>,
+    ) -> Result<tonic::Response<Self::GetAccountPendingPositionsStream>, tonic::Status> {
+        let request = request.into_inner();
+
+        let mut query = EngineCacheQueryBuilder::new();
+        query.with_client(&request.trader_id);
+        query.with_account(&request.account_id);
+
+        let result = {
+            let pending_cache = self.app.pending_positions_cache.read().await;
+            let positions = pending_cache.0.query_positions(query);
+
+            let result: Vec<PositionManagerPendingPositionGrpcModel> = positions
+                .iter()
+                .map(|x| {
+                    let item: PositionManagerPendingPositionGrpcModel = x.to_owned().clone().into();
+
+                    return item;
+                })
+                .collect();
+
+            result
+        };
+
+        return my_grpc_extensions::grpc_server::send_vec_to_stream(result, |x| x).await;
+    }
+
+    #[with_telemetry]
+    async fn get_pending_position(
+        &self,
+        request: tonic::Request<PositionManagerGetPendingPositionGrpcRequest>,
+    ) -> Result<tonic::Response<PositionManagerGetPendingPositionGrpcResponse>, tonic::Status> {
+        let request = request.into_inner();
+
+        let result = {
+            let reed = self.app.pending_positions_cache.read().await;
+            let result = reed.0.get_by_id(&request.id);
+
+            match result {
+                Some(src) => PositionManagerGetPendingPositionGrpcResponse {
+                    position: Some(src.clone().into()),
+                    status: PositionManagerOperationsCodes::Ok as i32,
+                },
+                None => PositionManagerGetPendingPositionGrpcResponse {
+                    position: None,
+                    status: PositionManagerOperationsCodes::PositionNotFound as i32,
+                },
+            }
+        };
+
+        return Ok(tonic::Response::new(result));
     }
 }

@@ -47,7 +47,44 @@ message PositionManagerOpenPositionGrpcRequest{
     string Quote = 16;
     string CollateralCurrency = 17;
     optional string Id = 18;
+}
 
+message PositionManagerOpenPendingGrpcRequest{
+    string AssetPair = 1;
+    PositionManagerPositionSide Side = 2;
+    double InvestAmount = 3;
+    double Leverage = 4;
+    double StopOutPercent = 5;
+    string ProcessId = 6;
+    optional double TpInProfit = 7;
+    optional double SlInProfit = 8;
+    optional double TpInAssetPrice = 9;
+    optional double SlInAssetPrice = 10;
+    optional double OpenPrice = 11;
+    optional PositionManagerBidAsk OpenBidAsk = 12;
+    string AccountId = 13;
+    string TraderId = 14;
+    string Base = 15;
+    string Quote = 16;
+    string CollateralCurrency = 17;
+    optional string Id = 18;
+    double DesirePrice = 19;
+}
+
+message PositionManagerOpenPendingGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerPendingPositionGrpcModel Position = 2;
+}
+
+message PositionManagerCancelPendingGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerPendingPositionGrpcModel Position = 2;
+}
+
+message PositionManagerCancelPendingGrpcRequest{
+    string Id = 1;
+    string TraderId = 2;
+    string AccountId = 3;
 }
 
 message PositionManagerActivePositionGrpcModel{
@@ -72,6 +109,26 @@ message PositionManagerActivePositionGrpcModel{
     string OpenProcessId = 19;
     uint64 OpenDate = 20;
     double Profit = 21;
+}
+
+message PositionManagerPendingPositionGrpcModel{
+    string Id = 1;
+    string AccountId = 2;
+    string TraderId = 3;
+    string AssetPair = 4;
+    PositionManagerPositionSide Side = 5;
+    double InvestAmount = 6;
+    double Leverage = 7;
+    double StopOutPercent = 8;
+    string CreateProcessId = 9;
+    uint64 CreateDateUnixTimestampMilis = 10;
+    string LastUpdateProcessId = 11;
+    uint64 LastUpdateDate = 12;
+    optional double TpInProfit = 13;
+    optional double SlInProfit = 14;
+    optional double TpInAssetPrice = 15;
+    optional double SlInAssetPrice = 16;
+    double DesirePrice = 17;
 }
 
 message PositionManagerOpenPositionGrpcResponse{
@@ -122,6 +179,17 @@ message PositionManagerGetActivePositionsGrpcRequest{
     string AccountId = 2;
 }
 
+message PositionManagerGetPendingPositionsGrpcRequest{
+    string TraderId = 1;
+    string AccountId = 2;
+}
+
+message PositionManagerGetPendingPositionGrpcRequest{
+    string TraderId = 1;
+    string AccountId = 2;
+    string Id = 3;
+}
+
 message PositionManagerGetActivePositionGrpcRequest{
     string TraderId = 1;
     string AccountId = 2;
@@ -131,6 +199,11 @@ message PositionManagerGetActivePositionGrpcRequest{
 message PositionManagerGetActivePositionGrpcResponse{
     PositionManagerOperationsCodes Status = 1;
     optional PositionManagerActivePositionGrpcModel Position = 2;
+}
+
+message PositionManagerGetPendingPositionGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerPendingPositionGrpcModel Position = 2;
 }
 
 message PositionManagerUpdateSlTpGrpcRequest{
@@ -161,12 +234,17 @@ message PositionManagerChargeSwapGrpcResponse{
     optional PositionManagerActivePositionGrpcModel Position = 2;
 }
 
+
 service PositionManagerGrpcService {
     rpc OpenPosition(position_manager.PositionManagerOpenPositionGrpcRequest) returns (position_manager.PositionManagerOpenPositionGrpcResponse);
     rpc ClosePosition(position_manager.PositionManagerClosePositionGrpcRequest) returns (position_manager.PositionManagerClosePositionGrpcResponse);
-    rpc GetAccountActivePositions(position_manager.PositionManagerGetActivePositionsGrpcRequest) returns (stream PositionManagerActivePositionGrpcModel);
-    rpc GetActivePosition(position_manager.PositionManagerGetActivePositionGrpcRequest) returns (PositionManagerGetActivePositionGrpcResponse);
     rpc UpdateSlTp(position_manager.PositionManagerUpdateSlTpGrpcRequest) returns (PositionManagerUpdateSlTpGrpcResponse);
     rpc ChargeSwap(position_manager.PositionManagerChargeSwapGrpcRequest) returns (PositionManagerChargeSwapGrpcResponse);
+    rpc GetActivePosition(position_manager.PositionManagerGetActivePositionGrpcRequest) returns (PositionManagerGetActivePositionGrpcResponse);
+    rpc GetAccountActivePositions(position_manager.PositionManagerGetActivePositionsGrpcRequest) returns (stream PositionManagerActivePositionGrpcModel);
+    rpc OpenPending(position_manager.PositionManagerOpenPendingGrpcRequest) returns (position_manager.PositionManagerOpenPendingGrpcResponse);
+    rpc CancelPending(position_manager.PositionManagerCancelPendingGrpcRequest) returns (position_manager.PositionManagerCancelPendingGrpcResponse);
+    rpc GetPendingPosition(position_manager.PositionManagerGetPendingPositionGrpcRequest) returns (PositionManagerGetPendingPositionGrpcResponse);
+    rpc GetAccountPendingPositions(position_manager.PositionManagerGetPendingPositionsGrpcRequest) returns (stream PositionManagerPendingPositionGrpcModel);
     rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
  }
