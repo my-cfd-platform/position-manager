@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use position_manager::{
     position_manager_grpc::position_manager_grpc_service_server::PositionManagerGrpcServiceServer,
-    AppContext, GrpcService, PricesListener, SettingsReader,
+    AppContext, PricesListener, SettingsReader, GrpcService,
 };
 
 #[tokio::main]
