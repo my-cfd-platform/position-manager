@@ -57,8 +57,8 @@ pub async fn open_position(
     let sb_model = PositionPersistenceEvent {
         process_id: request.process_id,
         update_position: None,
-        close_position: Some(map_active_to_sb_model(position.clone())),
-        create_position: None,
+        close_position: None,
+        create_position: Some(map_active_to_sb_model(position.clone())),
     };
 
     app.active_positions_persistence_publisher

@@ -21,3 +21,11 @@ pub struct SettingsModel {
     #[serde(rename = "MyTelemetry")]
     pub my_telemetry: String,
 }
+
+#[async_trait::async_trait]
+impl GrpcClientSettings for SettingsReader {
+    async fn get_grpc_url(&self, name: &'static str) -> String {
+        let settings = self.get_settings().await;
+        return settings.persistence_url.clone();
+    }
+}
