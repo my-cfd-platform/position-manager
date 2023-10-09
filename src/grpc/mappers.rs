@@ -60,6 +60,10 @@ impl Into<PositionManagerActivePositionGrpcModel> for MtPosition<MtPositionActiv
             open_process_id: self.state.open_data.open_process_id,
             open_date: self.state.open_data.open_date.unix_microseconds as u64,
             profit: self.state.profit,
+            base: self.base_data.base,
+            quote: self.base_data.quote,
+            collateral: self.base_data.collateral,
+            base_collateral_open_price: self.state.open_data.base_collateral_open_price,
         }
     }
 }

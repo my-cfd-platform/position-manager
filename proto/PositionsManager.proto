@@ -109,6 +109,10 @@ message PositionManagerActivePositionGrpcModel{
     string OpenProcessId = 19;
     uint64 OpenDate = 20;
     double Profit = 21;
+    string Base = 22;
+    string Quote = 23;
+    string Collateral = 24;
+    double BaseCollateralOpenPrice = 25;
 }
 
 message PositionManagerPendingPositionGrpcModel{
