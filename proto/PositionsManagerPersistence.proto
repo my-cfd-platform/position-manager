@@ -16,6 +16,11 @@ message PositionManagerPersistenceBidAsk{
     string Quote = 6;
 }
 
+message PositionManagerPositionSwapGrpcModel{
+    double Amount = 1;
+    uint64 Date = 2;
+}
+
 message PositionManagerPersistenceActivePositionGrpcModel{
     string Id = 1;
     string AccountId = 2;
@@ -45,6 +50,8 @@ message PositionManagerPersistenceActivePositionGrpcModel{
 
     string OpenProcessId = 24;
     uint64 OpenDateUnixTimestampMilis = 25;
+
+    repeated PositionManagerPositionSwapGrpcModel Swaps = 26;
 }
 
 message PositionManagerPersistencePendingPositionGrpcModel{

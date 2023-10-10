@@ -1,5 +1,5 @@
 use crate::{
-    cancel_pending, close_position, open_pending, open_position,
+    cancel_pending, charge_swaps, close_position, open_pending, open_position,
     position_manager_grpc::{
         position_manager_grpc_service_server::PositionManagerGrpcService,
         PositionManagerActivePositionGrpcModel, PositionManagerCancelPendingGrpcRequest,
@@ -18,6 +18,7 @@ use crate::{
     GrpcService,
 };
 use my_grpc_extensions::server::with_telemetry;
+use rust_extensions::date_time::DateTimeAsMicroseconds;
 use service_sdk::futures_core;
 use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
 use trading_sdk::{core::EngineCacheQueryBuilder, mt_engine::MtPositionCloseReason};
@@ -117,7 +118,31 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerChargeSwapGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerChargeSwapGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        todo!();
+
+        let updated_position = charge_swaps(
+            &self.app,
+            &format!(
+                "process-{}",
+                DateTimeAsMicroseconds::now().unix_microseconds
+            ),
+            &request.position_id,
+            request.swap_amount,
+            my_telemetry,
+        )
+        .await;
+
+        let response = match updated_position {
+            Some(position) => PositionManagerChargeSwapGrpcResponse {
+                position: Some(position.into()),
+                status: PositionManagerOperationsCodes::Ok as i32,
+            },
+            None => PositionManagerChargeSwapGrpcResponse {
+                position: None,
+                status: PositionManagerOperationsCodes::PositionNotFound as i32,
+            },
+        };
+
+        return Ok(tonic::Response::new(response));
     }
 
     #[with_telemetry]
@@ -183,10 +208,7 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(response));
     }
 
-    async fn ping(
-        &self,
-        _: tonic::Request<()>,
-    ) -> Result<tonic::Response<()>, tonic::Status> {
+    async fn ping(&self, _: tonic::Request<()>) -> Result<tonic::Response<()>, tonic::Status> {
         return Ok(tonic::Response::new(()));
     }
 

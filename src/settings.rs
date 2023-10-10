@@ -24,7 +24,7 @@ pub struct SettingsModel {
 
 #[async_trait::async_trait]
 impl GrpcClientSettings for SettingsReader {
-    async fn get_grpc_url(&self, name: &'static str) -> String {
+    async fn get_grpc_url(&self, _: &'static str) -> String {
         let settings = self.get_settings().await;
         return settings.persistence_url.clone();
     }

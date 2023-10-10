@@ -1,8 +1,10 @@
-use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSide, PendingOrderSbModel};
+use cfd_engine_sb_contracts::{
+    OrderBidAskSbModel, OrderSbModel, OrderSide, OrderSwap, PendingOrderSbModel,
+};
 use trading_sdk::mt_engine::{
-    get_close_price, get_pending_position_type, update_position_pl, MtBidAsk,
-    MtBidAskCache, MtPosition, MtPositionActiveState, MtPositionActiveStateOpenData,
-    MtPositionBaseData, MtPositionPendingState, MtPositionSide, MtPositionSwaps,
+    get_close_price, get_pending_position_type, update_position_pl, MtBidAsk, MtBidAskCache,
+    MtPosition, MtPositionActiveState, MtPositionActiveStateOpenData, MtPositionBaseData,
+    MtPositionPendingState, MtPositionSide, MtPositionSwaps, MtPositionSwap,
 };
 
 use crate::{
@@ -109,7 +111,16 @@ pub fn map_active_to_sb_model(src: MtPosition<MtPositionActiveState>) -> OrderSb
         base_collateral_open_bid_ask: base_collateral_open_bid_ask,
         close_quote_collateral_price: src.state.quote_collateral_active_price,
         close_quote_collateral_bid_ask: None,
-        swaps: vec![],
+        swaps: src
+            .state
+            .swaps
+            .swaps
+            .iter()
+            .map(|x| OrderSwap {
+                amount: x.amount,
+                date: x.date.unix_microseconds as u64,
+            })
+            .collect(),
     }
 }
 
@@ -188,6 +199,21 @@ pub async fn map_active_persistence(
     src: PositionManagerPersistenceActivePositionGrpcModel,
     prices_cache: &MtBidAskCache,
 ) -> MtPosition<MtPositionActiveState> {
+
+    let mut total_swaps = 0.0;
+    let swaps = src.swaps.iter().map(|x| {
+        total_swaps += x.amount;
+        MtPositionSwap{
+            date: x.date.into(),
+            amount: x.amount,
+        }
+    }).collect();
+
+    let swaps = MtPositionSwaps{
+        swaps,
+        total: total_swaps,
+    };
+
     let side = map_side(&src.side());
     let open_data = MtPositionActiveStateOpenData {
         asset_open_price: src.asset_open_price,
@@ -238,12 +264,12 @@ pub async fn map_active_persistence(
         quote_collateral_active_price: price,
         quote_collateral_active_bid_ask: bid_ask,
         profit: 0.0,
-        swaps: MtPositionSwaps::default(),
+        swaps,
     };
 
     let mut position = MtPosition {
         state,
-        base_data: base_data,
+        base_data,
     };
 
     update_position_pl(&mut position);
