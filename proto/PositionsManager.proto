@@ -28,6 +28,11 @@ message PositionManagerBidAsk{
     uint64 DateTimeUnixTimestampMilis = 4;
 }
 
+message PositionManagerSwapGrpcModel{
+    uint64 DateTimeUnixTimestampMilis = 1;
+    double SwapAmount = 2;
+}
+
 message PositionManagerOpenPositionGrpcRequest{
     string AssetPair = 1;
     PositionManagerPositionSide Side = 2;
@@ -113,6 +118,7 @@ message PositionManagerActivePositionGrpcModel{
     string Quote = 23;
     string Collateral = 24;
     double BaseCollateralOpenPrice = 25;
+    repeated PositionManagerSwapGrpcModel Swaps = 26;
 }
 
 message PositionManagerPendingPositionGrpcModel{
@@ -171,6 +177,7 @@ message PositionManagerClosedPositionGrpcModel{
     PositionManagerBidAsk CloseBidAsk = 22;
     string CloseProcessId = 23;
     PositionManagerClosePositionReason CloseReason = 24;
+    repeated PositionManagerSwapGrpcModel Swaps = 25;
 }
 
 message PositionManagerClosePositionGrpcResponse{

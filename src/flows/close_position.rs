@@ -6,7 +6,7 @@ use trading_sdk::mt_engine::{
     convert_position_to_closed, MtPosition, MtPositionCloseReason, MtPositionClosedState,
 };
 
-use crate::{map_closed_tp_sb, AppContext, EngineError};
+use crate::{map_closed_to_sb, AppContext, EngineError};
 
 pub async fn close_position(
     app: &Arc<AppContext>,
@@ -29,7 +29,7 @@ pub async fn close_position(
         process_id.to_string(),
     );
 
-    let sb_model = map_closed_tp_sb(&closed);
+    let sb_model = map_closed_to_sb(&closed);
 
     let sb_event = PositionPersistenceEvent {
         process_id: process_id.to_string(),

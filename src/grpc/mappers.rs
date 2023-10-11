@@ -1,7 +1,7 @@
-use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSide};
+use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSide, OrderSwap};
 use trading_sdk::mt_engine::{
     MtBidAsk, MtEngineError, MtPosition, MtPositionActiveState, MtPositionCloseReason,
-    MtPositionClosedState, MtPositionPendingState, MtPositionSide,
+    MtPositionClosedState, MtPositionPendingState, MtPositionSide, MtPositionSwap,
 };
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
         PositionManagerActivePositionGrpcModel, PositionManagerBidAsk,
         PositionManagerClosePositionReason, PositionManagerClosedPositionGrpcModel,
         PositionManagerOperationsCodes, PositionManagerPendingPositionGrpcModel,
-        PositionManagerPositionSide,
+        PositionManagerPositionSide, PositionManagerSwapGrpcModel,
     },
     EngineError,
 };
@@ -30,6 +30,15 @@ impl Into<PositionManagerBidAsk> for MtBidAsk {
             bid: self.bid,
             ask: self.ask,
             date_time_unix_timestamp_milis: self.date.unix_microseconds as u64,
+        }
+    }
+}
+
+impl Into<PositionManagerSwapGrpcModel> for MtPositionSwap {
+    fn into(self) -> PositionManagerSwapGrpcModel {
+        PositionManagerSwapGrpcModel {
+            date_time_unix_timestamp_milis: self.date.unix_microseconds as u64,
+            swap_amount: self.amount,
         }
     }
 }
@@ -64,6 +73,13 @@ impl Into<PositionManagerActivePositionGrpcModel> for MtPosition<MtPositionActiv
             quote: self.base_data.quote,
             collateral: self.base_data.collateral,
             base_collateral_open_price: self.state.open_data.base_collateral_open_price,
+            swaps: self
+                .state
+                .swaps
+                .swaps
+                .iter()
+                .map(|x| x.to_owned().into())
+                .collect(),
         }
     }
 }
@@ -116,6 +132,14 @@ impl Into<PositionManagerClosedPositionGrpcModel> for MtPosition<MtPositionClose
             close_bid_ask: Some(self.state.asset_close_bid_ask.into()),
             close_process_id: self.state.close_process_id,
             close_reason: reason as i32,
+            swaps: self
+                .state
+                .active_state
+                .swaps
+                .swaps
+                .iter()
+                .map(|x| x.to_owned().into())
+                .collect(),
         }
     }
 }
@@ -140,7 +164,14 @@ fn map_bid_ask_to_sb(src: MtBidAsk) -> OrderBidAskSbModel {
     }
 }
 
-pub fn map_closed_tp_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel {
+pub fn map_swaps_to_sb(src: MtPositionSwap) -> OrderSwap{
+    OrderSwap{
+        amount: src.amount,
+        date: src.date.unix_microseconds as u64,
+    }
+}
+
+pub fn map_closed_to_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel {
     let side = match src.base_data.side {
         MtPositionSide::Buy => OrderSide::Buy,
         MtPositionSide::Sell => OrderSide::Sell,
@@ -203,7 +234,7 @@ pub fn map_closed_tp_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel
         base_collateral_open_bid_ask: base_collateral_open_bid_ask,
         close_quote_collateral_price: src.state.active_state.quote_collateral_active_price,
         close_quote_collateral_bid_ask: close_quote_collateral_bid_ask,
-        swaps: vec![],
+        swaps: src.state.active_state.swaps.swaps.iter().map(|x| map_swaps_to_sb(x.to_owned())).collect(),
     }
 }
 
