@@ -16,6 +16,7 @@ pub async fn charge_swaps(
     let updated_position = write.0.update_position(id, |pos| {
         if let Some(pos) = pos {
             pos.state.swaps.add_swap(amount);
+            return Some(pos.clone());
         }
 
         return None;
