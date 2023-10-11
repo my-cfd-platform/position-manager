@@ -1,4 +1,5 @@
 use cfd_engine_sb_contracts::PositionPersistenceEvent;
+use rust_extensions::date_time::DateTimeAsMicroseconds;
 use service_sdk::my_telemetry::MyTelemetryContext;
 use trading_sdk::mt_engine::{MtPosition, MtPositionActiveState};
 
@@ -16,6 +17,8 @@ pub async fn charge_swaps(
     let updated_position = write.0.update_position(id, |pos| {
         if let Some(pos) = pos {
             pos.state.swaps.add_swap(amount);
+            pos.base_data.last_update_date = DateTimeAsMicroseconds::now();
+            pos.base_data.last_update_process_id = process_id.to_string();
             return Some(pos.clone());
         }
 

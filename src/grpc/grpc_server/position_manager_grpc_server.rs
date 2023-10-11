@@ -188,6 +188,8 @@ impl PositionManagerGrpcService for GrpcService {
                     src.base_data.tp_price = request.tp_in_asset_price;
                     src.base_data.sl_profit = request.sl_in_profit;
                     src.base_data.tp_profit = request.tp_in_profit;
+                    src.base_data.last_update_date = DateTimeAsMicroseconds::now();
+                    src.base_data.last_update_process_id = request.process_id.clone();
                     return Some(src.clone());
                 }
 
