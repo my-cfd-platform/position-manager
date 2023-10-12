@@ -248,6 +248,8 @@ impl PositionManagerGrpcService for GrpcService {
 
         let pending = open_pending(&self.app, request, my_telemetry).await;
 
+        println!("open_pending: {:#?}", pending);
+
         let response = match pending {
             Ok(position) => PositionManagerOpenPendingGrpcResponse {
                 position: Some(position.into()),
@@ -321,3 +323,4 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(result));
     }
 }
+
