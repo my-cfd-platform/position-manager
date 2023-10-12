@@ -12,7 +12,7 @@ use trading_sdk::{
     },
 };
 
-use crate::{execute_pending_positions, map_bid_ask, AppContext};
+use crate::{close_position_background, execute_pending_positions, map_bid_ask, AppContext};
 
 pub struct PricesListener {
     pub app: Arc<AppContext>,
@@ -41,19 +41,20 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
 
 async fn handle_bid_ask_message(app: &Arc<AppContext>, operation: BidAskSbModel) {
     let bid_ask = map_bid_ask(operation);
+    let process_id = format!("bg-bidask-processing.{}", bid_ask.date.unix_microseconds);
     {
         let mut prices = app.active_prices_cache.write().await;
         prices.handle_new(bid_ask.clone());
     }
-
     {
+        let mut positions_to_close = vec![];
         let mut write = app.active_positions_cache.write().await;
 
         let mut query = EngineCacheQueryBuilder::new();
         query.with_base(&bid_ask.base);
         query.with_quote(&bid_ask.quote);
 
-        write.0.update_positions(query, |position| {
+        let close_positions = write.0.update_positions(query, |position| {
             update_active_position_rate(position, &bid_ask);
             update_position_pl(position);
             let close_reason = get_close_reason(&position);
@@ -63,12 +64,14 @@ async fn handle_bid_ask_message(app: &Arc<AppContext>, operation: BidAskSbModel)
 
             return None;
         });
+
+        positions_to_close.extend(close_positions);
 
         let mut query = EngineCacheQueryBuilder::new();
         query.with_base(&bid_ask.base);
         query.with_collateral(&bid_ask.quote);
 
-        write.0.update_positions(query, |position| {
+        let close_positions = write.0.update_positions(query, |position| {
             update_active_position_rate(position, &bid_ask);
             update_position_pl(position);
             let close_reason = get_close_reason(&position);
@@ -78,12 +81,14 @@ async fn handle_bid_ask_message(app: &Arc<AppContext>, operation: BidAskSbModel)
 
             return None;
         });
+
+        positions_to_close.extend(close_positions);
 
         let mut query = EngineCacheQueryBuilder::new();
         query.with_quote(&bid_ask.base);
         query.with_collateral(&bid_ask.quote);
 
-        write.0.update_positions(query, |position| {
+        let close_positions = write.0.update_positions(query, |position| {
             update_active_position_rate(position, &bid_ask);
             update_position_pl(position);
             let close_reason = get_close_reason(&position);
@@ -93,6 +98,14 @@ async fn handle_bid_ask_message(app: &Arc<AppContext>, operation: BidAskSbModel)
 
             return None;
         });
+        positions_to_close.extend(close_positions);
+
+        for (id, reason) in positions_to_close {
+            let close_result =
+                close_position_background(app, &id, reason, &process_id, &mut write).await;
+
+            println!("Close result: {:?}", close_result);
+        }
     }
 
     let mut positions_cache = app.pending_positions_cache.write().await;
@@ -105,7 +118,6 @@ async fn handle_bid_ask_message(app: &Arc<AppContext>, operation: BidAskSbModel)
         return is_ready_to_execute_pending_position(x, &bid_ask);
     });
 
-    let process_id = format!("bg-bidask-processing.{}", bid_ask.date.unix_microseconds);
     execute_pending_positions(&app, positions_to_execute, &process_id).await;
 }
 

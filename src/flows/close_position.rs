@@ -3,7 +3,8 @@ use std::sync::Arc;
 use cfd_engine_sb_contracts::PositionPersistenceEvent;
 use service_sdk::my_telemetry::MyTelemetryContext;
 use trading_sdk::mt_engine::{
-    convert_position_to_closed, MtPosition, MtPositionCloseReason, MtPositionClosedState,
+    convert_position_to_closed, ActivePositionsCache, MtPosition, MtPositionCloseReason,
+    MtPositionClosedState,
 };
 
 use crate::{map_closed_to_sb, AppContext, EngineError};
@@ -40,6 +41,41 @@ pub async fn close_position(
 
     app.active_positions_persistence_publisher
         .publish(&sb_event, Some(telemetry))
+        .await
+        .unwrap();
+
+    return Ok(closed);
+}
+
+pub async fn close_position_background(
+    app: &Arc<AppContext>,
+    position_id: &str,
+    close_position_reason: MtPositionCloseReason,
+    process_id: &str,
+    cache: &mut ActivePositionsCache
+) -> Result<MtPosition<MtPositionClosedState>, EngineError> {
+    let active_position = cache
+        .0
+        .remove_position(position_id)
+        .ok_or(EngineError::PositionNotFound)?;
+
+    let closed = convert_position_to_closed(
+        active_position,
+        close_position_reason,
+        process_id.to_string(),
+    );
+
+    let sb_model = map_closed_to_sb(&closed);
+
+    let sb_event = PositionPersistenceEvent {
+        process_id: process_id.to_string(),
+        update_position: None,
+        close_position: Some(sb_model),
+        create_position: None,
+    };
+
+    app.active_positions_persistence_publisher
+        .publish(&sb_event, None)
         .await
         .unwrap();
 

@@ -20,6 +20,7 @@ pub mod position_manager_grpc {
     tonic::include_proto!("position_manager");
 }
 
+#[derive(Debug)]
 pub enum EngineError {
     NoLiquidity,
     PositionNotFound,
