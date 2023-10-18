@@ -13,7 +13,7 @@ async fn main() {
 
     let mut service_context = service_sdk::ServiceContext::new(settings_reader.clone()).await;
     let app_context = Arc::new(AppContext::new(&settings_reader, &service_context).await);
-
+    trade_log::core::TRADE_LOG.start(&service_context.sb_client).await;
     service_context.configure_grpc_server(|builder| {
         builder.add_grpc_service(PositionManagerGrpcServiceServer::new(GrpcService::new(
             app_context.clone(),

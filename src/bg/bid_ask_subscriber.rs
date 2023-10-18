@@ -36,8 +36,8 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
         while let Some(message) = messages_reader.get_next_message() {
             let operation = message.take_message();
 
-            let telemetry = message.my_telemetry.engage_telemetry();
             message.my_telemetry.add_tag("bidask", format!("{operation:?}"));
+            let telemetry = message.my_telemetry.engage_telemetry();
             let write_telemetry = handle_bid_ask_message(&self.app, operation, &telemetry).await;
 
             if !write_telemetry {
