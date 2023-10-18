@@ -9,6 +9,7 @@ pub use app_context::*;
 pub use bg::*;
 pub use flows::*;
 pub use grpc::*;
+use serde::{Serialize, Deserialize};
 pub use settings::*;
 pub use utils::*;
 
@@ -20,7 +21,7 @@ pub mod position_manager_grpc {
     tonic::include_proto!("position_manager");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EngineError {
     NoLiquidity,
     PositionNotFound,

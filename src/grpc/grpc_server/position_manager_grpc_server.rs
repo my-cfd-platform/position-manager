@@ -19,8 +19,8 @@ use crate::{
 };
 use my_grpc_extensions::server::with_telemetry;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
-use service_sdk::futures_core;
 use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
+use service_sdk::{futures_core, my_telemetry::MyTelemetryContext};
 use trading_sdk::{core::EngineCacheQueryBuilder, mt_engine::MtPositionCloseReason};
 
 #[tonic::async_trait]
@@ -34,9 +34,20 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerOpenPositionGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerOpenPositionGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        let open_position_result = open_position(&self.app, request, my_telemetry).await;
 
-        let response = match open_position_result {
+        trade_log::trade_log!(
+            &request.trader_id,
+            &request.account_id,
+            &request.process_id,
+            "",
+            "Got open position request",
+            my_telemetry.clone(),
+            "request" = &request
+        );
+
+        let open_position_result =
+            open_position(&self.app, request.clone(), &MyTelemetryContext::new()).await;
+        let response = match open_position_result.clone() {
             Ok(position) => PositionManagerOpenPositionGrpcResponse {
                 position: Some(position.into()),
                 status: PositionManagerOperationsCodes::Ok as i32,
@@ -49,6 +60,17 @@ impl PositionManagerGrpcService for GrpcService {
                 }
             }
         };
+
+        trade_log::trade_log!(
+            request.trader_id,
+            request.account_id,
+            request.process_id,
+            "",
+            "Returning open position grpc response",
+            my_telemetry.clone(),
+            "response" = &response,
+            "open_position_result" = &open_position_result
+        );
 
         return Ok(tonic::Response::new(response));
     }
@@ -85,8 +107,19 @@ impl PositionManagerGrpcService for GrpcService {
     ) -> Result<tonic::Response<PositionManagerClosePositionGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
 
+        trade_log::trade_log!(
+            &request.trader_id,
+            &request.account_id,
+            &request.process_id,
+            "",
+            "Got close position request",
+            my_telemetry.clone(),
+            "request" = &request
+        );
+
         let closed_position = close_position(
             &self.app,
+            &request.trader_id,
             &request.account_id,
             &request.position_id,
             MtPositionCloseReason::ClientCommand,
@@ -95,19 +128,30 @@ impl PositionManagerGrpcService for GrpcService {
         )
         .await;
 
-        let response = match closed_position {
+        let response = match &closed_position {
             Ok(position) => PositionManagerClosePositionGrpcResponse {
-                position: Some(position.into()),
+                position: Some(position.to_owned().into()),
                 status: PositionManagerOperationsCodes::Ok as i32,
             },
             Err(error) => {
-                let grpc_status: PositionManagerOperationsCodes = error.into();
+                let grpc_status: PositionManagerOperationsCodes = error.clone().into();
                 PositionManagerClosePositionGrpcResponse {
                     position: None,
                     status: grpc_status as i32,
                 }
             }
         };
+
+        trade_log::trade_log!(
+            request.trader_id,
+            request.account_id,
+            request.process_id,
+            "",
+            "Returning close position grpc response",
+            my_telemetry.clone(),
+            "close_result" = &closed_position,
+            "response" = &response
+        );
 
         return Ok(tonic::Response::new(response));
     }
@@ -131,7 +175,7 @@ impl PositionManagerGrpcService for GrpcService {
         )
         .await;
 
-        let response = match updated_position {
+        let response = match updated_position.clone() {
             Some(position) => PositionManagerChargeSwapGrpcResponse {
                 position: Some(position.into()),
                 status: PositionManagerOperationsCodes::Ok as i32,
@@ -141,6 +185,18 @@ impl PositionManagerGrpcService for GrpcService {
                 status: PositionManagerOperationsCodes::PositionNotFound as i32,
             },
         };
+
+        trade_log::trade_log!(
+            &request.trader_id,
+            &request.account_id,
+            &request.process_id,
+            "",
+            "Got charge swap request",
+            my_telemetry.clone(),
+            "request" = &request,
+            "updated_position" = &updated_position,
+            "response" = &response
+        );
 
         return Ok(tonic::Response::new(response));
     }
@@ -156,7 +212,7 @@ impl PositionManagerGrpcService for GrpcService {
         query.with_client(&request.trader_id);
         query.with_account(&request.account_id);
 
-        let result = {
+        let result: Vec<PositionManagerActivePositionGrpcModel> = {
             let active_cache = self.app.active_positions_cache.read().await;
             let account_positions = active_cache.0.query_positions(query);
 
@@ -170,7 +226,8 @@ impl PositionManagerGrpcService for GrpcService {
                 .collect()
         };
 
-        return my_grpc_extensions::grpc_server::send_vec_to_stream(result, |x| x).await;
+        return my_grpc_extensions::grpc_server::send_vec_to_stream(result.into_iter(), |x| x)
+            .await;
     }
 
     #[with_telemetry]
@@ -179,7 +236,6 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerUpdateSlTpGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerUpdateSlTpGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-
         let updated_position = {
             let mut active_cache = self.app.active_positions_cache.write().await;
             active_cache.0.update_position(&request.position_id, |x| {
@@ -197,7 +253,7 @@ impl PositionManagerGrpcService for GrpcService {
             })
         };
 
-        let response = match updated_position {
+        let response = match updated_position.clone() {
             Some(position) => PositionManagerUpdateSlTpGrpcResponse {
                 position: Some(position.into()),
                 status: PositionManagerOperationsCodes::Ok as i32,
@@ -207,6 +263,18 @@ impl PositionManagerGrpcService for GrpcService {
                 status: PositionManagerOperationsCodes::PositionNotFound as i32,
             },
         };
+
+        trade_log::trade_log!(
+            &request.trader_id,
+            &request.account_id,
+            &request.process_id,
+            &request.position_id,
+            "Got update sl tp request",
+            my_telemetry.clone(),
+            "request" = &request,
+            "updated_position" = &updated_position,
+            "response" = &response
+        );
         return Ok(tonic::Response::new(response));
     }
 
@@ -220,9 +288,9 @@ impl PositionManagerGrpcService for GrpcService {
         request: tonic::Request<PositionManagerCancelPendingGrpcRequest>,
     ) -> Result<tonic::Response<PositionManagerCancelPendingGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
-        let removed = cancel_pending(&self.app, request, my_telemetry).await;
+        let removed = cancel_pending(&self.app, request.clone(), my_telemetry).await;
 
-        let response = match removed {
+        let response = match removed.clone() {
             Ok(position) => PositionManagerCancelPendingGrpcResponse {
                 position: Some(position.into()),
                 status: PositionManagerOperationsCodes::Ok as i32,
@@ -236,6 +304,18 @@ impl PositionManagerGrpcService for GrpcService {
             }
         };
 
+        trade_log::trade_log!(
+            &request.trader_id,
+            &request.account_id,
+            "",
+            &request.id,
+            "Got cancel pending request",
+            my_telemetry.clone(),
+            "request" = &request,
+            "remove_position" = &removed,
+            "response" = &response
+        );
+
         return Ok(tonic::Response::new(response));
     }
 
@@ -246,11 +326,9 @@ impl PositionManagerGrpcService for GrpcService {
     ) -> Result<tonic::Response<PositionManagerOpenPendingGrpcResponse>, tonic::Status> {
         let request = request.into_inner();
 
-        let pending = open_pending(&self.app, request, my_telemetry).await;
+        let pending = open_pending(&self.app, request.clone(), my_telemetry).await;
 
-        println!("open_pending: {:#?}", pending);
-
-        let response = match pending {
+        let response = match pending.clone() {
             Ok(position) => PositionManagerOpenPendingGrpcResponse {
                 position: Some(position.into()),
                 status: PositionManagerOperationsCodes::Ok as i32,
@@ -263,6 +341,18 @@ impl PositionManagerGrpcService for GrpcService {
                 }
             }
         };
+
+        trade_log::trade_log!(
+            &request.trader_id,
+            &request.account_id,
+            &request.process_id,
+            "",
+            "Got open pending request",
+            my_telemetry.clone(),
+            "request" = &request,
+            "pending" = &pending,
+            "response" = &response
+        );
 
         return Ok(tonic::Response::new(response));
     }
@@ -294,7 +384,8 @@ impl PositionManagerGrpcService for GrpcService {
             result
         };
 
-        return my_grpc_extensions::grpc_server::send_vec_to_stream(result, |x| x).await;
+        return my_grpc_extensions::grpc_server::send_vec_to_stream(result.into_iter(), |x| x)
+            .await;
     }
 
     #[with_telemetry]
@@ -323,4 +414,3 @@ impl PositionManagerGrpcService for GrpcService {
         return Ok(tonic::Response::new(result));
     }
 }
-

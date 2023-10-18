@@ -13,7 +13,7 @@ service-sdk = { git = "https://github.com/MyJetTools/service-sdk", tag = "0.2.3"
     "my-service-bus",
 ] }
 
-trading-sdk = {git = "https://github.com/my-cfd-platform/trading-sdk", tag = "0.1.11"}
+trading-sdk = {git = "https://github.com/my-cfd-platform/trading-sdk", tag = "0.1.12"}
 
 chrono = "*"
 tokio = { version = "*", features = ["full"] }
@@ -23,9 +23,10 @@ tonic = { version = "*", features = ["tls", "tls-roots", "prost"] }
 prost = "*"
 prost-types = "*"
 cfd-engine-sb-contracts = { tag = "0.2.4", git = "https://github.com/my-cfd-platform/cfd-engine-sb-contracts.git" }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "*", features = ["derive"] }
 serde_json = "1.0.60"
 uuid = { version = "*", features = ["v4"] }
+trade-log = { git = "https://github.com/MyJetTools/trade-log.git", tag = "0.1.1" }
 
 [build-dependencies]
 ci-utils = { git = "https://github.com/MyJetTools/ci-utils.git", tag = "0.1.0" }

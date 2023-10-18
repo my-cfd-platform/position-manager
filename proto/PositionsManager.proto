@@ -237,8 +237,11 @@ message PositionManagerChargeSwapGrpcRequest
 {
     string PositionId = 1;
     string AccountId = 2;
-    double SwapAmount = 3;
+    string TraderId = 3;
+    string ProcessId = 4;
+    double SwapAmount = 5;
 }
+
 
 message PositionManagerChargeSwapGrpcResponse{
     PositionManagerOperationsCodes Status = 1;

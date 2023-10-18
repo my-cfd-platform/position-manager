@@ -28,8 +28,12 @@ pub async fn open_position(
     let side: PositionManagerPositionSide =
         PositionManagerPositionSide::try_from(request.side).unwrap();
 
+    let trader_id = request.trader_id.clone();
+    let account_id = request.trader_id.clone();
+    let process_id = request.process_id.clone();
+
     let open_command = MtPositionOpenCommand {
-        id,
+        id: id.clone(),
         trader_id: request.trader_id,
         account_id: request.account_id,
         side: side.into(),
@@ -48,7 +52,18 @@ pub async fn open_position(
         sl_price: request.sl_in_asset_price,
     };
 
-    let position = make_active_position(open_command, &prices_cache)?;
+    let position = make_active_position(open_command.clone(), &prices_cache)?;
+
+    trade_log::trade_log!(
+        &trader_id,
+        &account_id,
+        &process_id,
+        &id,
+        "Executing open position request",
+        telemetry.clone(),
+        "open_command" = &open_command,
+        "active_position" = &position
+    );
 
     let mut positions_cache = app.active_positions_cache.write().await;
 

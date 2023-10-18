@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use position_manager::{
     position_manager_grpc::position_manager_grpc_service_server::PositionManagerGrpcServiceServer,
-    AppContext, PricesListener, SettingsReader, GrpcService,
+    AppContext, GrpcService, PricesListener, SettingsReader,
 };
+use service_sdk::ServiceInfo;
 
 #[tokio::main]
 async fn main() {
@@ -20,6 +21,8 @@ async fn main() {
     });
 
     let db_job = PricesListener::new(app_context.clone());
+
+    trade_log::core::TRADE_LOG.init_component_name(settings_reader.get_service_name().as_str()).await;
 
     service_context.register_sb_subscribe(Arc::new(db_job), service_sdk::my_service_bus::abstractions::subscriber::TopicQueueType::PermanentWithSingleConnection).await;
 

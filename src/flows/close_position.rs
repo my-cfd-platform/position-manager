@@ -11,7 +11,8 @@ use crate::{map_closed_to_sb, AppContext, EngineError};
 
 pub async fn close_position(
     app: &Arc<AppContext>,
-    _: &str,
+    trader_id: &str,
+    account_id: &str,
     position_id: &str,
     close_position_reason: MtPositionCloseReason,
     process_id: &str,
@@ -25,9 +26,20 @@ pub async fn close_position(
         .ok_or(EngineError::PositionNotFound)?;
 
     let closed = convert_position_to_closed(
-        active_position,
+        active_position.clone(),
         close_position_reason,
         process_id.to_string(),
+    );
+
+    trade_log::trade_log!(
+        trader_id,
+        account_id,
+        process_id,
+        position_id,
+        "Executing close position",
+        telemetry.clone(),
+        "active_position" = &active_position,
+        "closed_position" = &closed
     );
 
     let sb_model = map_closed_to_sb(&closed);
@@ -49,9 +61,12 @@ pub async fn close_position(
 
 pub async fn close_position_background(
     app: &Arc<AppContext>,
+    trader_id: &str,
+    account_id: &str,
     position_id: &str,
     close_position_reason: MtPositionCloseReason,
     process_id: &str,
+    telemetry: &MyTelemetryContext,
     cache: &mut ActivePositionsCache
 ) -> Result<MtPosition<MtPositionClosedState>, EngineError> {
     let active_position = cache
@@ -60,9 +75,20 @@ pub async fn close_position_background(
         .ok_or(EngineError::PositionNotFound)?;
 
     let closed = convert_position_to_closed(
-        active_position,
+        active_position.clone(),
         close_position_reason,
         process_id.to_string(),
+    );
+
+    trade_log::trade_log!(
+        trader_id,
+        account_id,
+        process_id,
+        position_id,
+        "Executing close position background",
+        telemetry.clone(),
+        "active_position" = &active_position,
+        "closed_position" = &closed
     );
 
     let sb_model = map_closed_to_sb(&closed);
