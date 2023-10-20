@@ -21,7 +21,7 @@ use my_grpc_extensions::server::with_telemetry;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
 use service_sdk::{futures_core, my_telemetry::MyTelemetryContext};
-use trading_sdk::{core::EngineCacheQueryBuilder, mt_engine::MtPositionCloseReason};
+use trading_sdk::{core::EngineCacheQueryBuilder, mt_engine::{MtPositionCloseReason, sanitize_sl_tp}};
 
 #[tonic::async_trait]
 impl PositionManagerGrpcService for GrpcService {
@@ -246,6 +246,7 @@ impl PositionManagerGrpcService for GrpcService {
                     src.base_data.tp_profit = request.tp_in_profit;
                     src.base_data.last_update_date = DateTimeAsMicroseconds::now();
                     src.base_data.last_update_process_id = request.process_id.clone();
+                    sanitize_sl_tp(&mut src.base_data);
                     return Some(src.clone());
                 }
 
