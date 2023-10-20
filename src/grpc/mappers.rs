@@ -1,7 +1,7 @@
 use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSide, OrderSwap};
 use trading_sdk::mt_engine::{
     MtBidAsk, MtEngineError, MtPosition, MtPositionActiveState, MtPositionCloseReason,
-    MtPositionClosedState, MtPositionPendingState, MtPositionSide, MtPositionSwap,
+    MtPositionClosedState, MtPositionPendingState, MtPositionSide, MtPositionSwap, MtPositionBaseData,
 };
 
 use crate::{
