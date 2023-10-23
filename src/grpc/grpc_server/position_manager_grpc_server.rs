@@ -1,5 +1,6 @@
 use crate::{
-    cancel_pending, charge_swaps, close_position, open_pending, open_position,
+    cancel_pending, charge_swaps, close_position, map_active_to_sb_model, open_pending,
+    open_position,
     position_manager_grpc::{
         position_manager_grpc_service_server::PositionManagerGrpcService,
         PositionManagerActivePositionGrpcModel, PositionManagerCancelPendingGrpcRequest,
@@ -17,11 +18,15 @@ use crate::{
     },
     GrpcService,
 };
+use cfd_engine_sb_contracts::PositionPersistenceEvent;
 use my_grpc_extensions::server::with_telemetry;
 use rust_extensions::date_time::DateTimeAsMicroseconds;
 use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
 use service_sdk::{futures_core, my_telemetry::MyTelemetryContext};
-use trading_sdk::{core::EngineCacheQueryBuilder, mt_engine::{MtPositionCloseReason, sanitize_sl_tp}};
+use trading_sdk::{
+    core::EngineCacheQueryBuilder,
+    mt_engine::{sanitize_sl_tp, MtPositionCloseReason},
+};
 
 #[tonic::async_trait]
 impl PositionManagerGrpcService for GrpcService {
@@ -253,6 +258,20 @@ impl PositionManagerGrpcService for GrpcService {
                 return None;
             })
         };
+
+        if let Some(position) = &updated_position {
+            let sb_model = PositionPersistenceEvent {
+                process_id: request.process_id.clone(),
+                update_position: Some(map_active_to_sb_model(position.clone())),
+                close_position: None,
+                create_position: None,
+            };
+
+            self.app.active_positions_persistence_publisher
+                .publish(&sb_model, Some(my_telemetry))
+                .await
+                .unwrap();
+        }
 
         let response = match updated_position.clone() {
             Some(position) => PositionManagerUpdateSlTpGrpcResponse {
