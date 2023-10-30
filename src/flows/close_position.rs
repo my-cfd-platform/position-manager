@@ -101,7 +101,7 @@ pub async fn close_position_background(
     };
 
     app.active_positions_persistence_publisher
-        .publish(&sb_event, None)
+        .publish(&sb_event, Some(telemetry))
         .await
         .unwrap();
 

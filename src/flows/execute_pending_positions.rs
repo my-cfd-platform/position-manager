@@ -78,13 +78,17 @@ pub async fn execute_pending_positions(
         }
     }
 
-    app.pending_positions_persistence_publisher
+    if pending_persist_events.len() > 0 {
+        app.pending_positions_persistence_publisher
         .publish_messages(pending_persist_events.iter().map(|x| (x, None)))
         .await
         .unwrap();
+    }
 
-    app.active_positions_persistence_publisher
+    if active_persist_events.len() > 0 {
+        app.active_positions_persistence_publisher
         .publish_messages(active_persist_events.iter().map(|x| (x, None)))
         .await
         .unwrap();
+    }
 }
