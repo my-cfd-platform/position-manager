@@ -20,12 +20,6 @@ pub async fn cancel_pending(
     }
     .ok_or(MtEngineError::PositionNotFound)?;
 
-    app.pending_positions_cache
-        .write()
-        .await
-        .0
-        .add_position(removed.clone());
-
     let sb_event = PendingPositionPersistenceEvent {
         process_id: uuid::Uuid::new_v4().to_string(),
         cancel: Some(map_pending_to_sb_model(removed.clone())),
