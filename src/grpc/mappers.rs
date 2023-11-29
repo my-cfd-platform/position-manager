@@ -1,7 +1,8 @@
 use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSide, OrderSwap};
 use trading_sdk::mt_engine::{
-    MtBidAsk, MtEngineError, MtPosition, MtPositionActiveState, MtPositionCloseReason,
-    MtPositionClosedState, MtPositionPendingState, MtPositionSide, MtPositionSwap, MtPositionBaseData,
+    MtBidAsk, MtEngineError, MtPosition, MtPositionActiveState, MtPositionBaseData,
+    MtPositionCloseReason, MtPositionClosedState, MtPositionPendingState, MtPositionSide,
+    MtPositionSwap,
 };
 
 use crate::{
@@ -164,8 +165,8 @@ fn map_bid_ask_to_sb(src: MtBidAsk) -> OrderBidAskSbModel {
     }
 }
 
-pub fn map_swaps_to_sb(src: MtPositionSwap) -> OrderSwap{
-    OrderSwap{
+pub fn map_swaps_to_sb(src: MtPositionSwap) -> OrderSwap {
+    OrderSwap {
         amount: src.amount,
         date: src.date.unix_microseconds as u64,
     }
@@ -234,7 +235,14 @@ pub fn map_closed_to_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel
         base_collateral_open_bid_ask: base_collateral_open_bid_ask,
         close_quote_collateral_price: src.state.active_state.quote_collateral_active_price,
         close_quote_collateral_bid_ask: close_quote_collateral_bid_ask,
-        swaps: src.state.active_state.swaps.swaps.iter().map(|x| map_swaps_to_sb(x.to_owned())).collect(),
+        swaps: src
+            .state
+            .active_state
+            .swaps
+            .swaps
+            .iter()
+            .map(|x| map_swaps_to_sb(x.to_owned()))
+            .collect(),
     }
 }
 
