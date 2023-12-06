@@ -1,8 +1,9 @@
-use cfd_engine_sb_contracts::{OrderBidAskSbModel, OrderSbModel, OrderSide, OrderSwap};
+use cfd_engine_sb_contracts::{
+    OrderBidAskSbModel, OrderCloseReasonSbModel, OrderSbModel, OrderSide, OrderSwap,
+};
 use trading_sdk::mt_engine::{
-    MtBidAsk, MtEngineError, MtPosition, MtPositionActiveState, MtPositionBaseData,
-    MtPositionCloseReason, MtPositionClosedState, MtPositionPendingState, MtPositionSide,
-    MtPositionSwap,
+    MtBidAsk, MtEngineError, MtPosition, MtPositionActiveState, MtPositionCloseReason,
+    MtPositionClosedState, MtPositionPendingState, MtPositionSide, MtPositionSwap,
 };
 
 use crate::{
@@ -198,6 +199,14 @@ pub fn map_closed_to_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel
         None => None,
     };
 
+    let close_reason = match src.state.close_reason {
+        MtPositionCloseReason::ClientCommand => OrderCloseReasonSbModel::ClientCommand,
+        MtPositionCloseReason::StopOut => OrderCloseReasonSbModel::StopOut,
+        MtPositionCloseReason::TakeProfit => OrderCloseReasonSbModel::TakeProfit,
+        MtPositionCloseReason::StopLoss => OrderCloseReasonSbModel::StopLoss,
+        MtPositionCloseReason::ForceClose => OrderCloseReasonSbModel::ForceClose,
+    };
+
     OrderSbModel {
         id: src.base_data.id.clone(),
         trader_id: src.base_data.trader_id.clone(),
@@ -224,7 +233,7 @@ pub fn map_closed_to_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel
         open_date: src.state.active_state.open_data.open_date.unix_microseconds as u64,
         open_process_id: src.state.active_state.open_data.open_process_id.clone(),
         close_date: Some(src.state.close_date.unix_microseconds as u64),
-        close_reason: Some(src.state.close_reason.clone() as i32),
+        close_reason: Some(close_reason as i32),
         asset_close_price: Some(src.state.asset_close_price),
         asset_close_bid_ask: Some(map_bid_ask_to_sb(src.state.asset_close_bid_ask.clone())),
         close_process_id: Some(src.state.close_process_id.clone()),

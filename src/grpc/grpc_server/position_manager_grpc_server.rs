@@ -267,7 +267,8 @@ impl PositionManagerGrpcService for GrpcService {
                 create_position: None,
             };
 
-            self.app.active_positions_persistence_publisher
+            self.app
+                .active_positions_persistence_publisher
                 .publish(&sb_model, Some(my_telemetry))
                 .await
                 .unwrap();
