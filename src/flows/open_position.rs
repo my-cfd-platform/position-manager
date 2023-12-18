@@ -29,7 +29,7 @@ pub async fn open_position(
         PositionManagerPositionSide::try_from(request.side).unwrap();
 
     let trader_id = request.trader_id.clone();
-    let account_id = request.trader_id.clone();
+    let account_id = request.account_id.clone();
     let process_id = request.process_id.clone();
 
     let open_command = MtPositionOpenCommand {
