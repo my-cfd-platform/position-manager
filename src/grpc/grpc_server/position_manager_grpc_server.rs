@@ -20,8 +20,7 @@ use crate::{
 };
 use cfd_engine_sb_contracts::PositionPersistenceEvent;
 use my_grpc_extensions::server::with_telemetry;
-use rust_extensions::date_time::DateTimeAsMicroseconds;
-use service_sdk::my_grpc_extensions::{self, server::generate_server_stream};
+use service_sdk::{my_grpc_extensions::{self, server::generate_server_stream}, rust_extensions::date_time::DateTimeAsMicroseconds};
 use service_sdk::{futures_core, my_telemetry::MyTelemetryContext};
 use trading_sdk::{
     core::EngineCacheQueryBuilder,

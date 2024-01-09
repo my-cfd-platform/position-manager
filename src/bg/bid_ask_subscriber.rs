@@ -198,13 +198,12 @@ mod tests {
     use std::sync::Arc;
 
     use cfd_engine_sb_contracts::BidAskSbModel;
-    use rust_extensions::AppStates;
     use service_sdk::{
         my_service_bus::abstractions::{
             publisher::{MessageToPublish, MyServiceBusPublisher},
             MyServiceBusPublisherClient, PublishError,
         },
-        my_telemetry::MyTelemetryContext,
+        my_telemetry::MyTelemetryContext, rust_extensions::AppStates,
     };
     use tokio::sync::RwLock;
     use trading_sdk::mt_engine::{ActivePositionsCache, MtBidAskCache, PendingPositionsCache};

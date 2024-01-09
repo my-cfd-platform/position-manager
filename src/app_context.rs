@@ -1,10 +1,9 @@
 use std::{sync::Arc, thread::sleep, time::Duration};
 
 use cfd_engine_sb_contracts::{PendingPositionPersistenceEvent, PositionPersistenceEvent};
-use rust_extensions::AppStates;
 use service_sdk::{
     my_service_bus::abstractions::publisher::MyServiceBusPublisher,
-    my_telemetry::MyTelemetryContext, ServiceContext,
+    my_telemetry::MyTelemetryContext, ServiceContext, rust_extensions::AppStates,
 };
 use tokio::sync::RwLock;
 
