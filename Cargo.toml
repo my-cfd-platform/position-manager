@@ -12,7 +12,7 @@ service-sdk = { git = "https://github.com/MyJetTools/service-sdk", tag = "0.2.5"
     "my-service-bus",
 ] }
 
-trading-sdk = { git = "https://github.com/my-cfd-platform/trading-sdk", tag = "0.1.15" }
+trading-sdk = { git = "https://github.com/my-cfd-platform/trading-sdk", tag = "0.1.17" }
 
 cfd-engine-sb-contracts = { tag = "0.2.8", git = "https://github.com/my-cfd-platform/cfd-engine-sb-contracts.git" }
 
