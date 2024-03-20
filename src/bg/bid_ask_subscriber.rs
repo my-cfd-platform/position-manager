@@ -47,8 +47,11 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
             message
                 .my_telemetry
                 .add_tag("bidask", format!("{operation:?}"));
+            let mut sw = Stopwatch::start_new();
             let write_telemetry = handle_bid_ask_message(&self.app, operation, &telemetry).await;
-
+            sw.stop();
+            service_sdk::metrics::histogram!("bid_ask_processing_time_milis", "bid_ask" => operation.id.clone())
+                .record(sw.elapsed().as_millis() as f64);
             if !write_telemetry {
                 message.my_telemetry.ignore_this_event();
             }
