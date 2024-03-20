@@ -40,7 +40,7 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
     ) -> Result<(), MySbSubscriberHandleError> {
         while let Some(message) = messages_reader.get_next_message() {
             let operation = message.take_message();
-            service_sdk::metrics::counter!("bid_ask_messages_income", "bid-ask" => operation.id.clone())
+            service_sdk::metrics::counter!("bid_ask_messages_income", "bid_ask" => operation.id.clone())
                 .increment(1);
 
             let telemetry = message.my_telemetry.engage_telemetry();
@@ -83,7 +83,6 @@ async fn handle_bid_ask_message(
     operation: BidAskSbModel,
     telemetry: &MyTelemetryContext,
 ) -> bool {
-    let mut sw = Stopwatch::start_new();
     let bid_ask = map_bid_ask(operation);
 
     let mut write_telemetry = false;
@@ -344,10 +343,7 @@ async fn handle_bid_ask_message(
     }
 
     execute_pending_positions(&app, positions_to_execute, &process_id).await;
-    sw.stop();
-    let duration = sw.elapsed();
-    service_sdk::metrics::histogram!("handle_bid_ask_message_milis", "bid-ask" => bid_ask.asset_pair)
-        .record(duration.as_millis() as f64);
+
     write_telemetry
 }
 
