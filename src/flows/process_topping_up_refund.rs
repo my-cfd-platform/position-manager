@@ -54,12 +54,18 @@ pub async fn process_topping_up_refund(
             .await
             .unwrap();
 
-        PositionToppingUpEvent {
-            process_id: process_id.to_string(),
-            position_id: id.to_string(),
-            trader_id: trader_id.to_string(),
-            account_id: account_id.to_string(),
-            delta: -topping_up_amount,
-        };
+        app.topping_up_publisher
+            .publish(
+                &PositionToppingUpEvent {
+                    process_id: process_id.to_string(),
+                    position_id: id.to_string(),
+                    trader_id: trader_id.to_string(),
+                    account_id: account_id.to_string(),
+                    delta: -topping_up_amount,
+                },
+                Some(my_telemetry),
+            )
+            .await
+            .unwrap();
     }
 }
