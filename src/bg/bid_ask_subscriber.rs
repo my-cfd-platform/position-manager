@@ -40,7 +40,8 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
     ) -> Result<(), MySbSubscriberHandleError> {
         while let Some(message) = messages_reader.get_next_message() {
             let operation = message.take_message();
-            service_sdk::metrics::counter!("bid_ask_messages_income", "bid_ask" => operation.id.clone())
+            let asset_id = operation.id.clone();
+            service_sdk::metrics::counter!("bid_ask_messages_income", "bid_ask" => asset_id.clone())
                 .increment(1);
 
             let telemetry = message.my_telemetry.engage_telemetry();
@@ -50,7 +51,7 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
             let mut sw = Stopwatch::start_new();
             let write_telemetry = handle_bid_ask_message(&self.app, operation, &telemetry).await;
             sw.stop();
-            service_sdk::metrics::histogram!("bid_ask_processing_time_milis", "bid_ask" => operation.id.clone())
+            service_sdk::metrics::histogram!("bid_ask_processing_time_milis", "bid_ask" => asset_id.clone())
                 .record(sw.elapsed().as_millis() as f64);
             if !write_telemetry {
                 message.my_telemetry.ignore_this_event();
