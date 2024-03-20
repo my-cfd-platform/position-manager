@@ -52,6 +52,11 @@ message PositionManagerPersistenceActivePositionGrpcModel{
     uint64 OpenDateUnixTimestampMilis = 25;
 
     repeated PositionManagerPositionSwapGrpcModel Swaps = 26;
+
+    optional double ToppingUpPercent = 27;
+    map<string, string> Metadata = 28;
+    optional double MarginCallPercent = 29;
+    optional double ReservedFundForToppingUp = 30;
 }
 
 message PositionManagerPersistencePendingPositionGrpcModel{
@@ -75,8 +80,11 @@ message PositionManagerPersistencePendingPositionGrpcModel{
     string Base = 18;
     string Quote = 19;
     double DesirePrice = 20;
-}
 
+    optional double ToppingUpPercent = 21;
+    map<string, string> Metadata = 22;
+    optional double MarginCallPercent = 23;
+}
 
 service PositionManagerPersistenceGrpcService {
     rpc GetActivePositions(google.protobuf.Empty) returns (stream PositionManagerPersistenceActivePositionGrpcModel);

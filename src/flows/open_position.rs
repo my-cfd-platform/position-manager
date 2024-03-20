@@ -50,6 +50,15 @@ pub async fn open_position(
         tp_price: request.tp_in_asset_price,
         sl_profit: request.sl_in_profit,
         sl_price: request.sl_in_asset_price,
+        topping_up_percent: request.topping_up_percent,
+        metadata: {
+            if request.metadata.iter().len() > 0 {
+                Some(request.metadata)
+            } else{
+                None
+            }
+        },
+        margin_call_percent: request.margin_call_percent,
     };
 
     let position = make_active_position(open_command.clone(), &prices_cache)?;

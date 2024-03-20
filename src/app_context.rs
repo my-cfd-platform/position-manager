@@ -1,9 +1,11 @@
 use std::{sync::Arc, thread::sleep, time::Duration};
 
-use cfd_engine_sb_contracts::{PendingPositionPersistenceEvent, PositionPersistenceEvent};
+use cfd_engine_sb_contracts::{
+    PendingPositionPersistenceEvent, PositionManagerPositionMarginCallHit, PositionPersistenceEvent, PositionToppingUpEvent,
+};
 use service_sdk::{
     my_service_bus::abstractions::publisher::MyServiceBusPublisher,
-    my_telemetry::MyTelemetryContext, ServiceContext, rust_extensions::AppStates,
+    my_telemetry::MyTelemetryContext, rust_extensions::AppStates, ServiceContext,
 };
 use tokio::sync::RwLock;
 
@@ -19,6 +21,8 @@ pub struct AppContext {
     pub active_positions_persistence_publisher: MyServiceBusPublisher<PositionPersistenceEvent>,
     pub pending_positions_persistence_publisher:
         MyServiceBusPublisher<PendingPositionPersistenceEvent>,
+    pub margin_call_publisher: MyServiceBusPublisher<PositionManagerPositionMarginCallHit>,
+    pub topping_up_publisher: MyServiceBusPublisher<PositionToppingUpEvent>,
 }
 
 impl AppContext {
@@ -33,6 +37,8 @@ impl AppContext {
             app_states: Arc::new(AppStates::create_initialized()),
             active_positions_persistence_publisher: service_context.get_sb_publisher(false).await,
             pending_positions_persistence_publisher: service_context.get_sb_publisher(false).await,
+            margin_call_publisher: service_context.get_sb_publisher(false).await,
+            topping_up_publisher: service_context.get_sb_publisher(false).await,
         }
     }
 }

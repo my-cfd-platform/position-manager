@@ -9,10 +9,9 @@ pub use app_context::*;
 pub use bg::*;
 pub use flows::*;
 pub use grpc::*;
-use serde::{Serialize, Deserialize};
 pub use settings::*;
-pub use utils::*;
 
+use serde::{Deserialize, Serialize};
 pub mod position_manager_persistence {
     tonic::include_proto!("position_manager_persistence");
 }

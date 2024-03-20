@@ -4,7 +4,7 @@ use cfd_engine_sb_contracts::{
 use trading_sdk::mt_engine::{
     get_close_price, get_pending_position_type, update_position_pl, MtBidAsk, MtBidAskCache,
     MtPosition, MtPositionActiveState, MtPositionActiveStateOpenData, MtPositionBaseData,
-    MtPositionPendingState, MtPositionSide, MtPositionSwaps, MtPositionSwap,
+    MtPositionPendingState, MtPositionSide, MtPositionSwap, MtPositionSwaps,
 };
 
 use crate::{
@@ -121,6 +121,9 @@ pub fn map_active_to_sb_model(src: MtPosition<MtPositionActiveState>) -> OrderSb
                 date: x.date.unix_microseconds as u64,
             })
             .collect(),
+        topping_up_percent: src.base_data.topping_up_percent,
+        topping_up_amount: src.state.topping_up,
+        margin_call_percent: src.base_data.margin_call_percent,
     }
 }
 
@@ -180,6 +183,15 @@ pub async fn map_pending_persistence(
         tp_price: src.tp_in_asset_price,
         sl_profit: src.sl_in_profit,
         sl_price: src.sl_in_asset_price,
+        topping_up_percent: src.topping_up_percent,
+        metadata: {
+            if src.metadata.iter().len() > 0 {
+                Some(src.metadata)
+            } else {
+                None
+            }
+        },
+        margin_call_percent: src.margin_call_percent,
     };
 
     let current_price = prices_cache.get_by_id(&base_data.asset_pair).unwrap();
@@ -199,17 +211,20 @@ pub async fn map_active_persistence(
     src: PositionManagerPersistenceActivePositionGrpcModel,
     prices_cache: &MtBidAskCache,
 ) -> MtPosition<MtPositionActiveState> {
-
     let mut total_swaps = 0.0;
-    let swaps = src.swaps.iter().map(|x| {
-        total_swaps += x.amount;
-        MtPositionSwap{
-            date: x.date.into(),
-            amount: x.amount,
-        }
-    }).collect();
+    let swaps = src
+        .swaps
+        .iter()
+        .map(|x| {
+            total_swaps += x.amount;
+            MtPositionSwap {
+                date: x.date.into(),
+                amount: x.amount,
+            }
+        })
+        .collect();
 
-    let swaps = MtPositionSwaps{
+    let swaps = MtPositionSwaps {
         swaps,
         total: total_swaps,
     };
@@ -245,6 +260,15 @@ pub async fn map_active_persistence(
         tp_price: src.tp_in_asset_price,
         sl_profit: src.sl_in_profit,
         sl_price: src.sl_in_asset_price,
+        topping_up_percent: src.topping_up_percent,
+        metadata: {
+            if src.metadata.iter().len() > 0 {
+                Some(src.metadata)
+            } else {
+                None
+            }
+        },
+        margin_call_percent: src.margin_call_percent,
     };
 
     let (asset, quote_collateral) = get_active_prices(
@@ -265,12 +289,11 @@ pub async fn map_active_persistence(
         quote_collateral_active_bid_ask: bid_ask,
         profit: 0.0,
         swaps,
+        topping_up: src.reserved_fund_for_topping_up,
+        is_margin_call_hit: false,
     };
 
-    let mut position = MtPosition {
-        state,
-        base_data,
-    };
+    let mut position = MtPosition { state, base_data };
 
     update_position_pl(&mut position);
 

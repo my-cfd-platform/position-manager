@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use cfd_engine_sb_contracts::{
     OrderBidAskSbModel, OrderCloseReasonSbModel, OrderSbModel, OrderSide, OrderSwap,
 };
@@ -82,6 +84,10 @@ impl Into<PositionManagerActivePositionGrpcModel> for MtPosition<MtPositionActiv
                 .iter()
                 .map(|x| x.to_owned().into())
                 .collect(),
+            metadata: self.base_data.metadata.unwrap_or(HashMap::new()),
+            topping_up_percent: self.base_data.topping_up_percent,
+            margin_call_percent: self.base_data.margin_call_percent,
+            reserved_fund_for_topping_up: self.state.topping_up,
         }
     }
 }
@@ -142,6 +148,10 @@ impl Into<PositionManagerClosedPositionGrpcModel> for MtPosition<MtPositionClose
                 .iter()
                 .map(|x| x.to_owned().into())
                 .collect(),
+            margin_call_percent: self.base_data.margin_call_percent,
+            topping_up_percent: self.base_data.topping_up_percent,
+            metadata: self.base_data.metadata.unwrap_or(HashMap::new()),
+            reserved_fund_for_topping_up: self.state.active_state.topping_up,
         }
     }
 }
@@ -252,6 +262,9 @@ pub fn map_closed_to_sb(src: &MtPosition<MtPositionClosedState>) -> OrderSbModel
             .iter()
             .map(|x| map_swaps_to_sb(x.to_owned()))
             .collect(),
+        topping_up_percent: src.base_data.topping_up_percent,
+        topping_up_amount: src.state.active_state.topping_up,
+        margin_call_percent: src.base_data.margin_call_percent,
     }
 }
 
@@ -284,6 +297,9 @@ impl Into<PositionManagerPendingPositionGrpcModel> for MtPosition<MtPositionPend
             tp_in_asset_price: self.base_data.tp_price,
             sl_in_asset_price: self.base_data.sl_price,
             desire_price: self.state.desire_price,
+            metadata: self.base_data.metadata.unwrap_or(HashMap::new()),
+            topping_up_percent: self.base_data.topping_up_percent,
+            margin_call_percent: self.base_data.margin_call_percent,
         }
     }
 }
