@@ -54,6 +54,8 @@ pub fn map_pending_to_sb_model(src: MtPosition<MtPositionPendingState>) -> Pendi
         quote: src.base_data.quote,
         collateral_currency: src.base_data.collateral,
         desire_price: src.state.desire_price,
+        topping_up_percent: src.base_data.topping_up_percent,
+        margin_call_percent: src.base_data.margin_call_percent,
     }
 }
 
