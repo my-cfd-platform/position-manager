@@ -125,6 +125,7 @@ async fn handle_bid_ask_message(
                             trader_id: position.base_data.trader_id.clone(),
                             account_id: position.base_data.account_id.clone(),
                             margin_call_percent,
+                            topping_up_amount: calculate_position_topping_up(&position.base_data),
                         },
                     ));
                 };
@@ -175,6 +176,7 @@ async fn handle_bid_ask_message(
                             trader_id: position.base_data.trader_id.clone(),
                             account_id: position.base_data.account_id.clone(),
                             margin_call_percent,
+                            topping_up_amount: calculate_position_topping_up(&position.base_data),
                         },
                     ));
                 };
@@ -225,6 +227,7 @@ async fn handle_bid_ask_message(
                             trader_id: position.base_data.trader_id.clone(),
                             account_id: position.base_data.account_id.clone(),
                             margin_call_percent,
+                            topping_up_amount: calculate_position_topping_up(&position.base_data),
                         },
                     ));
                 };
