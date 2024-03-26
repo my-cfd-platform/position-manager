@@ -41,7 +41,6 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
         while let Some(message) = messages_reader.get_next_message() {
             let operation = message.take_message();
             let asset_id = operation.id.clone();
-            println!("handled bid ask: {}", asset_id.clone());
             service_sdk::metrics::counter!("bid_ask_messages_income", "bid_ask" => asset_id.clone())
                 .increment(1);
 
