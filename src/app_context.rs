@@ -5,7 +5,7 @@ use cfd_engine_sb_contracts::{
 };
 use service_sdk::{
     my_service_bus::abstractions::publisher::MyServiceBusPublisher,
-    my_telemetry::MyTelemetryContext, rust_extensions::AppStates, ServiceContext,
+    my_telemetry::MyTelemetryContext, rust_extensions::{AppStates, StopWatch}, ServiceContext,
 };
 use tokio::sync::RwLock;
 
@@ -50,6 +50,8 @@ async fn load_data(
     Arc<RwLock<ActivePositionsCache>>,
     Arc<RwLock<PendingPositionsCache>>,
 ) {
+    let mut sw = StopWatch::new();
+    sw.start();
     let telemetry = MyTelemetryContext::new();
     telemetry.start_event_tracking("PositionManagerPersistenceClient initialization");
     let grpc_client = PositionManagerPersistenceClient::new(settings.clone());
@@ -68,6 +70,10 @@ async fn load_data(
 
         (positions_cache, pending_positions_cache)
     };
+
+    sw.pause();
+
+    println!("Data loaded in: {} ms", sw.duration().as_millis());
 
     return (
         active_prices_cache,
