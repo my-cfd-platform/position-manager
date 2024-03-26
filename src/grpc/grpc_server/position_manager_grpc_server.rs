@@ -385,9 +385,9 @@ impl PositionManagerGrpcService for GrpcService {
     ) -> Result<tonic::Response<Self::GetAccountActivePositionsStream>, tonic::Status> {
         let request = request.into_inner();
 
-        let mut query = EngineCacheQueryBuilder::new();
-        query.with_client(&request.trader_id);
-        query.with_account(&request.account_id);
+        let query = EngineCacheQueryBuilder::new()
+            .with_client(&request.trader_id)
+            .with_account(&request.account_id);
 
         let result: Vec<PositionManagerActivePositionGrpcModel> = {
             let active_cache = self.app.active_positions_cache.read().await;
@@ -557,9 +557,9 @@ impl PositionManagerGrpcService for GrpcService {
     ) -> Result<tonic::Response<Self::GetAccountPendingPositionsStream>, tonic::Status> {
         let request = request.into_inner();
 
-        let mut query = EngineCacheQueryBuilder::new();
-        query.with_client(&request.trader_id);
-        query.with_account(&request.account_id);
+        let query = EngineCacheQueryBuilder::new()
+            .with_client(&request.trader_id)
+            .with_account(&request.account_id);
 
         let result = {
             let pending_cache = self.app.pending_positions_cache.read().await;

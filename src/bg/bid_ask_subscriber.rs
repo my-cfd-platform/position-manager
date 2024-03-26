@@ -13,7 +13,7 @@ use trading_sdk::{
     mt_engine::{
         calculate_position_topping_up, can_return_topping_up_funds, get_close_reason,
         is_ready_to_execute_pending_position, update_active_position_rate, update_margin_call_hit,
-        update_position_pl, MtPositionCloseReason,
+        update_position_pl, MtBidAsk, MtPosition, MtPositionActiveState, MtPositionCloseReason,
     },
 };
 
@@ -49,33 +49,31 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
                 .my_telemetry
                 .add_tag("bidask", format!("{operation:?}"));
             let mut sw = Stopwatch::start_new();
-            let write_telemetry = handle_bid_ask_message(&self.app, operation, &telemetry).await;
+            handle_bid_ask_message(&self.app, operation, &telemetry).await;
             sw.stop();
-            service_sdk::metrics::histogram!("bid_ask_processing_time_milis", "bid_ask" => asset_id.clone())
-                .record(sw.elapsed().as_millis() as f64);
-            if !write_telemetry {
-                message.my_telemetry.ignore_this_event();
-            }
+            service_sdk::metrics::histogram!("bid_ask_processing_time_nanos", "bid_ask" => asset_id.clone())
+                .record(sw.elapsed().as_nanos() as f64);
+            message.my_telemetry.ignore_this_event();
         }
 
         return Ok(());
     }
 }
 
-enum UpdatePositionCase {
+pub enum UpdatePositionCase {
     Close(PositionsToCloseDto),
     MarginCallHit(PositionManagerPositionMarginCallHit),
     ReturnToppingUp(PositionsReturnToppingUp),
 }
 
-struct PositionsReturnToppingUp {
+pub struct PositionsReturnToppingUp {
     pub id: String,
     pub trader_id: String,
     pub account_id: String,
     pub topping_up_amount: f64,
 }
 
-struct PositionsToCloseDto {
+pub struct PositionsToCloseDto {
     pub trader_id: String,
     pub account_id: String,
     pub id: String,
@@ -86,175 +84,104 @@ async fn handle_bid_ask_message(
     app: &Arc<AppContext>,
     operation: BidAskSbModel,
     telemetry: &MyTelemetryContext,
-) -> bool {
+) {
     let bid_ask = map_bid_ask(operation);
 
-    let mut write_telemetry = false;
-
     let process_id = format!("bg-bidask-processing.{}", bid_ask.date.unix_microseconds);
-    {
-        let mut prices = app.active_prices_cache.write().await;
-        prices.handle_new(bid_ask.clone());
-    }
-    {
-        let mut update_positions_result = vec![];
-        let mut write = app.active_positions_cache.write().await;
+    handle_prices_update_bid_ask(app.as_ref(), bid_ask.clone()).await;
+    handle_active_positions_update_bid_ask(app, &bid_ask, &process_id, telemetry).await;
+    handle_pending_positions_update(app, &bid_ask, &process_id, telemetry).await;
+}
 
-        let mut query = EngineCacheQueryBuilder::new();
-        query.with_base(&bid_ask.base);
-        query.with_quote(&bid_ask.quote);
+pub async fn handle_prices_update_bid_ask(app: &AppContext, bid_ask: MtBidAsk) {
+    let mut prices = app.active_prices_cache.write().await;
+    prices.handle_new(bid_ask);
+}
 
-        let update_result = write.0.update_positions(query, |position| {
-            update_active_position_rate(position, &bid_ask);
-            update_position_pl(position);
+pub async fn handle_active_positions_update_bid_ask(
+    app: &Arc<AppContext>,
+    bid_ask: &MtBidAsk,
+    process_id: &str,
+    telemetry: &MyTelemetryContext,
+) {
+    let mut update_positions_result = vec![];
 
-            let close_reason = get_close_reason(&position);
-            if let Some(cr) = close_reason {
-                let close_dto = PositionsToCloseDto {
-                    trader_id: position.base_data.trader_id.clone(),
-                    account_id: position.base_data.account_id.clone(),
-                    id: position.base_data.id.clone(),
-                    close_reason: cr,
-                };
+    let base_quote_query = EngineCacheQueryBuilder::new()
+        .with_base(&bid_ask.base)
+        .with_quote(&bid_ask.quote);
 
-                return Some(UpdatePositionCase::Close(close_dto));
+    let base_collateral_query = EngineCacheQueryBuilder::new()
+        .with_base(&bid_ask.base)
+        .with_collateral(&bid_ask.quote);
+
+    let quote_collateral_query = EngineCacheQueryBuilder::new()
+        .with_quote(&bid_ask.base)
+        .with_collateral(&bid_ask.quote);
+
+    let update_function = |position: &mut MtPosition<MtPositionActiveState>| {
+        update_active_position_rate(position, &bid_ask);
+        update_position_pl(position);
+
+        let close_reason = get_close_reason(&position);
+        if let Some(cr) = close_reason {
+            let close_dto = PositionsToCloseDto {
+                trader_id: position.base_data.trader_id.clone(),
+                account_id: position.base_data.account_id.clone(),
+                id: position.base_data.id.clone(),
+                close_reason: cr,
             };
 
-            if let Some(margin_call_percent) = position.base_data.margin_call_percent.clone() {
-                if update_margin_call_hit(position) {
-                    return Some(UpdatePositionCase::MarginCallHit(
-                        PositionManagerPositionMarginCallHit {
-                            position_id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            margin_call_percent,
-                            topping_up_amount: calculate_position_topping_up(&position.base_data),
-                        },
-                    ));
-                };
-            };
+            return Some(UpdatePositionCase::Close(close_dto));
+        };
 
-            if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
-                if can_return_topping_up_funds(position) {
-                    return Some(UpdatePositionCase::ReturnToppingUp(
-                        PositionsReturnToppingUp {
-                            id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            topping_up_amount,
-                        },
-                    ));
-                }
+        if let Some(margin_call_percent) = position.base_data.margin_call_percent.clone() {
+            if update_margin_call_hit(position) {
+                return Some(UpdatePositionCase::MarginCallHit(
+                    PositionManagerPositionMarginCallHit {
+                        position_id: position.base_data.id.clone(),
+                        trader_id: position.base_data.trader_id.clone(),
+                        account_id: position.base_data.account_id.clone(),
+                        margin_call_percent,
+                        topping_up_amount: calculate_position_topping_up(&position.base_data),
+                    },
+                ));
+            };
+        };
+
+        if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
+            if can_return_topping_up_funds(position) {
+                return Some(UpdatePositionCase::ReturnToppingUp(
+                    PositionsReturnToppingUp {
+                        id: position.base_data.id.clone(),
+                        trader_id: position.base_data.trader_id.clone(),
+                        account_id: position.base_data.account_id.clone(),
+                        topping_up_amount,
+                    },
+                ));
             }
-            return None;
-        });
-
-        update_positions_result.extend(update_result);
-
-        let mut query = EngineCacheQueryBuilder::new();
-        query.with_base(&bid_ask.base);
-        query.with_collateral(&bid_ask.quote);
-
-        let update_result = write.0.update_positions(query, |position| {
-            update_active_position_rate(position, &bid_ask);
-            update_position_pl(position);
-
-            let close_reason = get_close_reason(&position);
-            if let Some(cr) = close_reason {
-                let close_dto = PositionsToCloseDto {
-                    trader_id: position.base_data.trader_id.clone(),
-                    account_id: position.base_data.account_id.clone(),
-                    id: position.base_data.id.clone(),
-                    close_reason: cr,
-                };
-
-                return Some(UpdatePositionCase::Close(close_dto));
-            };
-
-            if let Some(margin_call_percent) = position.base_data.margin_call_percent.clone() {
-                if update_margin_call_hit(position) {
-                    return Some(UpdatePositionCase::MarginCallHit(
-                        PositionManagerPositionMarginCallHit {
-                            position_id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            margin_call_percent,
-                            topping_up_amount: calculate_position_topping_up(&position.base_data),
-                        },
-                    ));
-                };
-            };
-
-            if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
-                if can_return_topping_up_funds(position) {
-                    return Some(UpdatePositionCase::ReturnToppingUp(
-                        PositionsReturnToppingUp {
-                            id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            topping_up_amount,
-                        },
-                    ));
-                }
-            }
-            return None;
-        });
-
-        update_positions_result.extend(update_result);
-
-        let mut query = EngineCacheQueryBuilder::new();
-        query.with_quote(&bid_ask.base);
-        query.with_collateral(&bid_ask.quote);
-
-        let update_result = write.0.update_positions(query, |position| {
-            update_active_position_rate(position, &bid_ask);
-            update_position_pl(position);
-
-            let close_reason = get_close_reason(&position);
-            if let Some(cr) = close_reason {
-                let close_dto = PositionsToCloseDto {
-                    trader_id: position.base_data.trader_id.clone(),
-                    account_id: position.base_data.account_id.clone(),
-                    id: position.base_data.id.clone(),
-                    close_reason: cr,
-                };
-
-                return Some(UpdatePositionCase::Close(close_dto));
-            };
-
-            if let Some(margin_call_percent) = position.base_data.margin_call_percent.clone() {
-                if update_margin_call_hit(position) {
-                    return Some(UpdatePositionCase::MarginCallHit(
-                        PositionManagerPositionMarginCallHit {
-                            position_id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            margin_call_percent,
-                            topping_up_amount: calculate_position_topping_up(&position.base_data),
-                        },
-                    ));
-                };
-            };
-
-            if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
-                if can_return_topping_up_funds(position) {
-                    return Some(UpdatePositionCase::ReturnToppingUp(
-                        PositionsReturnToppingUp {
-                            id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            topping_up_amount,
-                        },
-                    ));
-                }
-            }
-            return None;
-        });
-        update_positions_result.extend(update_result);
-
-        if update_positions_result.len() > 0 {
-            write_telemetry = true;
         }
+        return None;
+    };
+
+    {
+        let mut write = app.active_positions_cache.write().await;
+        update_positions_result.extend(
+            write
+                .0
+                .update_positions(base_quote_query.clone(), update_function),
+        );
+
+        update_positions_result.extend(
+            write
+                .0
+                .update_positions(base_collateral_query.clone(), update_function),
+        );
+
+        update_positions_result.extend(
+            write
+                .0
+                .update_positions(quote_collateral_query, update_function),
+        );
 
         for update in update_positions_result {
             match update {
@@ -274,7 +201,7 @@ async fn handle_bid_ask_message(
                     trade_log::trade_log!(
                         &close_position.trader_id,
                         &close_position.account_id,
-                        &process_id,
+                        process_id,
                         &close_position.id,
                         "Detected position to close while check bidask",
                         telemetry.clone(),
@@ -286,7 +213,7 @@ async fn handle_bid_ask_message(
                     trade_log::trade_log!(
                         &margin_call_hit.trader_id,
                         &margin_call_hit.account_id,
-                        &process_id,
+                        process_id,
                         &margin_call_hit.position_id,
                         "Detected margin call for position.",
                         telemetry.clone(),
@@ -308,7 +235,7 @@ async fn handle_bid_ask_message(
                     trade_log::trade_log!(
                         &topping_up_return.trader_id,
                         &topping_up_return.account_id,
-                        &process_id,
+                        process_id,
                         &topping_up_return.id,
                         "Detected topping up refund.",
                         telemetry.clone(),
@@ -318,26 +245,29 @@ async fn handle_bid_ask_message(
             }
         }
     }
+}
 
+pub async fn handle_pending_positions_update(
+    app: &Arc<AppContext>,
+    bid_ask: &MtBidAsk,
+    process_id: &str,
+    telemetry: &MyTelemetryContext,
+) {
     let mut positions_cache = app.pending_positions_cache.write().await;
 
-    let mut query = EngineCacheQueryBuilder::new();
-    query.with_base(&bid_ask.base);
-    query.with_quote(&bid_ask.quote);
+    let query = EngineCacheQueryBuilder::new()
+        .with_base(&bid_ask.base)
+        .with_quote(&bid_ask.quote);
 
     let positions_to_execute = positions_cache.0.query_and_select_remove(query, |x| {
         return is_ready_to_execute_pending_position(x, &bid_ask);
     });
 
-    if positions_to_execute.len() > 0 {
-        write_telemetry = true;
-    }
-
     for pending in &positions_to_execute {
         trade_log::trade_log!(
             &pending.base_data.trader_id,
             &pending.base_data.account_id,
-            &process_id,
+            process_id,
             &pending.base_data.id,
             "Detected position to close while check bidask",
             telemetry.clone(),
@@ -347,8 +277,6 @@ async fn handle_bid_ask_message(
     }
 
     execute_pending_positions(&app, positions_to_execute, &process_id).await;
-
-    write_telemetry
 }
 
 #[cfg(test)]
