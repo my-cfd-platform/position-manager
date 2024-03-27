@@ -44,6 +44,10 @@ impl SubscriberCallback<BidAskSbModel> for PricesListener {
             service_sdk::metrics::counter!("bid_ask_messages_income", "bid_ask" => asset_id.clone())
                 .increment(1);
 
+            if self.app.debug {
+                println!("BidAsk: {:?}", operation)
+            }
+
             let telemetry = message.my_telemetry.engage_telemetry();
             message
                 .my_telemetry
@@ -85,6 +89,9 @@ async fn handle_bid_ask_message(
     operation: BidAskSbModel,
     telemetry: &MyTelemetryContext,
 ) {
+    if app.debug {
+        println!("Handle bid ask: {:?}", operation)
+    }
     let bid_ask = map_bid_ask(operation);
 
     let process_id = format!("bg-bidask-processing.{}", bid_ask.date.unix_microseconds);
@@ -94,6 +101,9 @@ async fn handle_bid_ask_message(
 }
 
 pub async fn handle_prices_update_bid_ask(app: &AppContext, bid_ask: MtBidAsk) {
+    if app.debug {
+        println!("Handle prices")
+    }
     let mut prices = app.active_prices_cache.write().await;
     prices.handle_new(bid_ask);
 }
@@ -104,6 +114,9 @@ pub async fn handle_active_positions_update_bid_ask(
     process_id: &str,
     telemetry: &MyTelemetryContext,
 ) {
+    if app.debug {
+        println!("Handle active")
+    }
     let mut update_positions_result = vec![];
 
     let base_quote_query = EngineCacheQueryBuilder::new()
@@ -253,6 +266,9 @@ pub async fn handle_pending_positions_update(
     process_id: &str,
     telemetry: &MyTelemetryContext,
 ) {
+    if app.debug {
+        println!("Handle pending update")
+    }
     let mut positions_cache = app.pending_positions_cache.write().await;
 
     let query = EngineCacheQueryBuilder::new()
@@ -353,6 +369,7 @@ mod tests {
                 false,
                 service_sdk::my_logger::LOGGER.clone(),
             ),
+            debug: false,
         });
 
         handle_bid_ask_message(

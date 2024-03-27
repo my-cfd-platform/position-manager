@@ -23,6 +23,7 @@ pub struct AppContext {
         MyServiceBusPublisher<PendingPositionPersistenceEvent>,
     pub margin_call_publisher: MyServiceBusPublisher<PositionManagerPositionMarginCallHit>,
     pub topping_up_publisher: MyServiceBusPublisher<PositionToppingUpEvent>,
+    pub debug: bool,
 }
 
 impl AppContext {
@@ -39,6 +40,7 @@ impl AppContext {
             pending_positions_persistence_publisher: service_context.get_sb_publisher(false).await,
             margin_call_publisher: service_context.get_sb_publisher(false).await,
             topping_up_publisher: service_context.get_sb_publisher(false).await,
+            debug: std::env::var("DEBUG").is_ok(),
         }
     }
 }
