@@ -4,7 +4,7 @@ use cfd_engine_sb_contracts::{PositionPersistenceEvent, PositionToppingUpEvent};
 use service_sdk::{
     my_telemetry::MyTelemetryContext, rust_extensions::date_time::DateTimeAsMicroseconds,
 };
-use trading_sdk::mt_engine::return_topping_up;
+use trading_sdk::mt_engine::{return_topping_up, ActivePositionsCache};
 
 use crate::{map_active_to_sb_model, AppContext};
 
@@ -15,11 +15,11 @@ pub async fn process_topping_up_refund(
     account_id: &str,
     process_id: &str,
     topping_up_amount: f64,
+    cache: &mut ActivePositionsCache,
     my_telemetry: &MyTelemetryContext,
 ) {
     let updated_position = {
-        let mut active_cache = app.active_positions_cache.write().await;
-        active_cache.0.update_position(&id, |x| {
+        cache.0.update_position(&id, |x| {
             if let Some(src) = x {
                 src.base_data.last_update_date = DateTimeAsMicroseconds::now();
                 src.base_data.last_update_process_id = process_id.to_string();

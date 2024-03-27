@@ -241,6 +241,7 @@ pub async fn handle_active_positions_update_bid_ask(
                         &topping_up_return.account_id,
                         &process_id,
                         topping_up_return.topping_up_amount,
+                        &mut write,
                         &telemetry,
                     )
                     .await;
