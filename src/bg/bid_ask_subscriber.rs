@@ -159,6 +159,8 @@ pub async fn handle_active_positions_update_bid_ask(
                     },
                 ));
             };
+            
+            return None;
         };
 
         if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
