@@ -118,8 +118,9 @@ pub async fn handle_active_positions_update_bid_ask(
         println!("Handle active")
     }
     let mut update_positions_result = vec![];
-    let mut margin_call_hit = HashSet::new();
-    let mut topping_up_refund = HashSet::new();
+
+    let mut margin_call_hit_list = HashSet::new();
+    let mut topping_up_refund_list = HashSet::new();
 
     let base_quote_query = EngineCacheQueryBuilder::new()
         .with_base(&bid_ask.base)
@@ -151,34 +152,28 @@ pub async fn handle_active_positions_update_bid_ask(
 
         if let Some(margin_call_percent) = position.base_data.margin_call_percent.clone() {
             if update_margin_call_hit(position) {
-                if !margin_call_hit.contains(&position.base_data.id) {
-                    margin_call_hit.insert(position.base_data.id.clone());
-                    return Some(UpdatePositionCase::MarginCallHit(
-                        PositionManagerPositionMarginCallHit {
-                            position_id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            margin_call_percent,
-                            topping_up_amount: calculate_position_topping_up(&position.base_data),
-                        },
-                    ));
-                }
+                return Some(UpdatePositionCase::MarginCallHit(
+                    PositionManagerPositionMarginCallHit {
+                        position_id: position.base_data.id.clone(),
+                        trader_id: position.base_data.trader_id.clone(),
+                        account_id: position.base_data.account_id.clone(),
+                        margin_call_percent,
+                        topping_up_amount: calculate_position_topping_up(&position.base_data),
+                    },
+                ));
             };
         };
 
         if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
             if can_return_topping_up_funds(position) {
-                if !topping_up_refund.contains(&position.base_data.id) {
-                    topping_up_refund.insert(position.base_data.id.clone());
-                    return Some(UpdatePositionCase::ReturnToppingUp(
-                        PositionsReturnToppingUp {
-                            id: position.base_data.id.clone(),
-                            trader_id: position.base_data.trader_id.clone(),
-                            account_id: position.base_data.account_id.clone(),
-                            topping_up_amount,
-                        },
-                    ));
-                }
+                return Some(UpdatePositionCase::ReturnToppingUp(
+                    PositionsReturnToppingUp {
+                        id: position.base_data.id.clone(),
+                        trader_id: position.base_data.trader_id.clone(),
+                        account_id: position.base_data.account_id.clone(),
+                        topping_up_amount,
+                    },
+                ));
             }
         }
 
@@ -232,6 +227,10 @@ pub async fn handle_active_positions_update_bid_ask(
                     );
                 }
                 UpdatePositionCase::MarginCallHit(margin_call_hit) => {
+                    if margin_call_hit_list.contains(&margin_call_hit.position_id) {
+                        continue;
+                    }
+
                     trade_log::trade_log!(
                         &margin_call_hit.trader_id,
                         &margin_call_hit.account_id,
@@ -240,9 +239,13 @@ pub async fn handle_active_positions_update_bid_ask(
                         "Detected margin call for position.",
                         telemetry.clone(),
                     );
+                    margin_call_hit_list.insert(margin_call_hit.position_id.clone());
                     handle_position_margin_call(app.clone(), margin_call_hit).await;
                 }
                 UpdatePositionCase::ReturnToppingUp(topping_up_return) => {
+                    if topping_up_refund_list.contains(&topping_up_return.id) {
+                        continue;
+                    }
                     process_topping_up_refund(
                         app.clone(),
                         &topping_up_return.id,
@@ -264,6 +267,7 @@ pub async fn handle_active_positions_update_bid_ask(
                         telemetry.clone(),
                         "topping_up_amount" = &topping_up_return.topping_up_amount
                     );
+                    topping_up_refund_list.insert(topping_up_return.id.clone());
                 }
             }
         }
