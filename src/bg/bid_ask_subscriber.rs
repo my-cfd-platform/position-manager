@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use cfd_engine_sb_contracts::{BidAskSbModel, PositionManagerPositionMarginCallHit};
 use service_sdk::{
@@ -118,6 +118,8 @@ pub async fn handle_active_positions_update_bid_ask(
         println!("Handle active")
     }
     let mut update_positions_result = vec![];
+    let mut margin_call_hit = HashSet::new();
+    let mut topping_up_refund = HashSet::new();
 
     let base_quote_query = EngineCacheQueryBuilder::new()
         .with_base(&bid_ask.base)
@@ -149,28 +151,34 @@ pub async fn handle_active_positions_update_bid_ask(
 
         if let Some(margin_call_percent) = position.base_data.margin_call_percent.clone() {
             if update_margin_call_hit(position) {
-                return Some(UpdatePositionCase::MarginCallHit(
-                    PositionManagerPositionMarginCallHit {
-                        position_id: position.base_data.id.clone(),
-                        trader_id: position.base_data.trader_id.clone(),
-                        account_id: position.base_data.account_id.clone(),
-                        margin_call_percent,
-                        topping_up_amount: calculate_position_topping_up(&position.base_data),
-                    },
-                ));
+                if !margin_call_hit.contains(&position.base_data.id) {
+                    margin_call_hit.insert(position.base_data.id.clone());
+                    return Some(UpdatePositionCase::MarginCallHit(
+                        PositionManagerPositionMarginCallHit {
+                            position_id: position.base_data.id.clone(),
+                            trader_id: position.base_data.trader_id.clone(),
+                            account_id: position.base_data.account_id.clone(),
+                            margin_call_percent,
+                            topping_up_amount: calculate_position_topping_up(&position.base_data),
+                        },
+                    ));
+                }
             };
         };
 
         if let Some(topping_up_amount) = calculate_position_topping_up(&position.base_data) {
             if can_return_topping_up_funds(position) {
-                return Some(UpdatePositionCase::ReturnToppingUp(
-                    PositionsReturnToppingUp {
-                        id: position.base_data.id.clone(),
-                        trader_id: position.base_data.trader_id.clone(),
-                        account_id: position.base_data.account_id.clone(),
-                        topping_up_amount,
-                    },
-                ));
+                if !topping_up_refund.contains(&position.base_data.id) {
+                    topping_up_refund.insert(position.base_data.id.clone());
+                    return Some(UpdatePositionCase::ReturnToppingUp(
+                        PositionsReturnToppingUp {
+                            id: position.base_data.id.clone(),
+                            trader_id: position.base_data.trader_id.clone(),
+                            account_id: position.base_data.account_id.clone(),
+                            topping_up_amount,
+                        },
+                    ));
+                }
             }
         }
 
