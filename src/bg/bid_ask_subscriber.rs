@@ -18,8 +18,8 @@ use trading_sdk::{
 };
 
 use crate::{
-    close_position_background, execute_pending_positions, handle_position_margin_call, map_bid_ask,
-    process_topping_up_refund, AppContext,
+    close_position_background, handle_pending_rdy_to_execute, handle_position_margin_call,
+    map_bid_ask, process_topping_up_refund, AppContext,
 };
 
 pub struct PricesListener {
@@ -306,7 +306,7 @@ pub async fn handle_pending_positions_update(
         );
     }
 
-    execute_pending_positions(&app, positions_to_execute, &process_id).await;
+    handle_pending_rdy_to_execute(&app, positions_to_execute, &process_id).await;
 }
 
 #[cfg(test)]
@@ -357,6 +357,9 @@ mod tests {
         let app = Arc::new(AppContext {
             active_positions_cache: Arc::new(RwLock::new(ActivePositionsCache::new())),
             pending_positions_cache: Arc::new(RwLock::new(PendingPositionsCache::new())),
+            pending_execute_to_confirm_positions: Arc::new(RwLock::new(
+                PendingPositionsCache::new(),
+            )),
             active_prices_cache: Arc::new(RwLock::new(MtBidAskCache::new())),
             app_states: Arc::new(AppStates::create_initialized()),
             active_positions_persistence_publisher: MyServiceBusPublisher::new(
@@ -384,6 +387,12 @@ mod tests {
                 service_sdk::my_logger::LOGGER.clone(),
             ),
             debug: false,
+            pending_need_confirm_publisher: MyServiceBusPublisher::new(
+                "test".to_string(),
+                Arc::new(TestPublisherClient {}),
+                false,
+                service_sdk::my_logger::LOGGER.clone(),
+            ),
         });
 
         handle_bid_ask_message(

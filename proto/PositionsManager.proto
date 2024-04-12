@@ -297,6 +297,16 @@ message PositionManagerUpdateToppingUpGrpcResponse
     optional PositionManagerActivePositionGrpcModel Position = 2;
 }
 
+message PositionManagerConfirmPendingExecuteGrpcRequest{
+    string PositionId = 1;
+}
+
+message PositionManagerConfirmPendingExecuteGrpcResponse{
+    PositionManagerOperationsCodes Status = 1;
+    optional PositionManagerActivePositionGrpcModel Position = 2;
+}
+
+
 service PositionManagerGrpcService {
     rpc OpenPosition(position_manager.PositionManagerOpenPositionGrpcRequest) returns (position_manager.PositionManagerOpenPositionGrpcResponse);
     rpc ClosePosition(position_manager.PositionManagerClosePositionGrpcRequest) returns (position_manager.PositionManagerClosePositionGrpcResponse);
@@ -310,5 +320,6 @@ service PositionManagerGrpcService {
     rpc GetAccountPendingPositions(position_manager.PositionManagerGetPendingPositionsGrpcRequest) returns (stream PositionManagerPendingPositionGrpcModel);
     rpc TopUpPosition(position_manager.PositionManagerTopUpPositionGrpcRequest) returns (position_manager.PositionManagerTopUpPositionGrpcResponse);
     rpc UpdateToppingUpSettings(position_manager.PositionManagerUpdateToppingUpGrpcRequest) returns (position_manager.PositionManagerUpdateToppingUpGrpcResponse);
+    rpc ConfirmPendingExecution(position_manager.PositionManagerConfirmPendingExecuteGrpcRequest) returns (position_manager.PositionManagerConfirmPendingExecuteGrpcResponse);
     rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
  }

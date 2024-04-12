@@ -1,14 +1,15 @@
 use crate::{
-    cancel_pending, charge_swaps, close_position, map_active_to_sb_model, open_pending,
-    open_position,
+    cancel_pending, charge_swaps, close_position, confirm_pending_execution,
+    map_active_to_sb_model, open_pending, open_position,
     position_manager_grpc::{
         position_manager_grpc_service_server::PositionManagerGrpcService,
         PositionManagerActivePositionGrpcModel, PositionManagerCancelPendingGrpcRequest,
         PositionManagerCancelPendingGrpcResponse, PositionManagerChargeSwapGrpcRequest,
         PositionManagerChargeSwapGrpcResponse, PositionManagerClosePositionGrpcRequest,
-        PositionManagerClosePositionGrpcResponse, PositionManagerGetActivePositionGrpcRequest,
-        PositionManagerGetActivePositionGrpcResponse, PositionManagerGetActivePositionsGrpcRequest,
-        PositionManagerGetPendingPositionGrpcRequest,
+        PositionManagerClosePositionGrpcResponse, PositionManagerConfirmPendingExecuteGrpcRequest,
+        PositionManagerConfirmPendingExecuteGrpcResponse,
+        PositionManagerGetActivePositionGrpcRequest, PositionManagerGetActivePositionGrpcResponse,
+        PositionManagerGetActivePositionsGrpcRequest, PositionManagerGetPendingPositionGrpcRequest,
         PositionManagerGetPendingPositionGrpcResponse,
         PositionManagerGetPendingPositionsGrpcRequest, PositionManagerOpenPendingGrpcRequest,
         PositionManagerOpenPendingGrpcResponse, PositionManagerOpenPositionGrpcRequest,
@@ -605,5 +606,32 @@ impl PositionManagerGrpcService for GrpcService {
         };
 
         return Ok(tonic::Response::new(result));
+    }
+
+    // #[with_telemetry]
+    async fn confirm_pending_execution(
+        &self,
+        request: tonic::Request<PositionManagerConfirmPendingExecuteGrpcRequest>,
+    ) -> Result<tonic::Response<PositionManagerConfirmPendingExecuteGrpcResponse>, tonic::Status>
+    {
+        let request = request.into_inner();
+
+        let pending = confirm_pending_execution(&self.app, &request.position_id).await;
+
+        let response = match pending.clone() {
+            Ok(position) => PositionManagerConfirmPendingExecuteGrpcResponse {
+                position: Some(position.into()),
+                status: PositionManagerOperationsCodes::Ok as i32,
+            },
+            Err(error) => {
+                let grpc_status: PositionManagerOperationsCodes = error.into();
+                PositionManagerConfirmPendingExecuteGrpcResponse {
+                    position: None,
+                    status: grpc_status as i32,
+                }
+            }
+        };
+
+        return Ok(tonic::Response::new(response));
     }
 }
